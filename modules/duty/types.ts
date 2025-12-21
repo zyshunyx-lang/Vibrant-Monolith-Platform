@@ -1,6 +1,8 @@
 
 export type RuleType = 'ordinary' | 'holiday' | 'weekend' | 'workday';
 
+export type RotationStrategy = 'unified_loop' | 'split_loop';
+
 export interface DutyCategory {
   id: string;
   name: string;
@@ -10,7 +12,8 @@ export interface DutyCategory {
 export interface DutyRule {
   id: string;
   categoryId: string;
-  ruleTypes: RuleType[]; // A category can have multiple rules (e.g., both weekend and holiday)
+  ruleTypes: RuleType[]; 
+  strategy: RotationStrategy;
 }
 
 export interface CalendarOverride {
@@ -20,26 +23,38 @@ export interface CalendarOverride {
 }
 
 export interface SlotConfig {
-  id: number; // Slot index: 1, 2, 3...
-  name: string; // e.g., "Leader on Duty", "Staff 1"
-  allowedCategoryIds: string[]; // Which categories can fill this slot
+  id: number;
+  name: string;
+  allowedCategoryIds: string[];
 }
 
 export interface DutyConfig {
   userId: string;
-  categoryId: string; // Users are now assigned to a category
+  categoryId: string;
   isExempt: boolean;
   sortOrder: number;
 }
 
 export interface Schedule {
   id: string;
-  date: string; // ISO format: YYYY-MM-DD
+  date: string;
   slots: {
     slotId: number;
     userId: string;
   }[];
   status: 'draft' | 'published';
+}
+
+// Key format: "categoryId_trackName" -> lastUserId
+export type RotationState = Record<string, string>;
+
+export interface DutyConfigProfile {
+  id: string;
+  name: string;
+  categories: DutyCategory[];
+  rules: DutyRule[];
+  slotConfigs: SlotConfig[];
+  rosterConfigs: Record<string, DutyConfig>;
 }
 
 export interface DutyModuleSchema {
@@ -49,4 +64,8 @@ export interface DutyModuleSchema {
   slotConfigs: SlotConfig[];
   rosterConfigs: Record<string, DutyConfig>;
   schedules: Schedule[];
+  rotationState: RotationState;
+  // Profile Management
+  savedProfiles: DutyConfigProfile[];
+  currentProfileName: string;
 }

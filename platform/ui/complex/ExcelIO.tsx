@@ -10,6 +10,7 @@ interface ExcelIOProps {
   templateData?: any[];
   templateFileName?: string;
   label?: string;
+  variant?: 'primary' | 'secondary' | 'ghost';
 }
 
 export const ExcelIO: React.FC<ExcelIOProps> = ({
@@ -17,7 +18,8 @@ export const ExcelIO: React.FC<ExcelIOProps> = ({
   onImport,
   templateData = [],
   templateFileName = 'template.xlsx',
-  label = mode === 'import' ? 'Import Excel' : 'Download Template'
+  label = mode === 'import' ? 'Import Excel' : 'Download Template',
+  variant = 'secondary'
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -27,13 +29,16 @@ export const ExcelIO: React.FC<ExcelIOProps> = ({
 
     const reader = new FileReader();
     reader.onload = (event) => {
-      const data = event.target?.result;
-      const workbook = XLSX.read(data, { type: 'binary' });
-      const firstSheetName = workbook.SheetNames[0];
-      const worksheet = workbook.Sheets[firstSheetName];
-      const json = XLSX.utils.sheet_to_json(worksheet);
-      onImport(json);
-      // Reset input
+      try {
+        const data = event.target?.result;
+        const workbook = XLSX.read(data, { type: 'binary' });
+        const firstSheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[firstSheetName];
+        const json = XLSX.utils.sheet_to_json(worksheet);
+        onImport(json);
+      } catch (err) {
+        alert("Failed to parse Excel file. Please ensure it is a valid .xlsx file.");
+      }
       if (fileInputRef.current) fileInputRef.current.value = '';
     };
     reader.readAsBinaryString(file);
@@ -57,13 +62,13 @@ export const ExcelIO: React.FC<ExcelIOProps> = ({
             accept=".xlsx, .xls"
             onChange={handleFileChange}
           />
-          <Button variant="secondary" onClick={() => fileInputRef.current?.click()}>
+          <Button variant={variant} onClick={() => fileInputRef.current?.click()}>
             <Icon name="Upload" size={18} className="mr-2" />
             {label}
           </Button>
         </>
       ) : (
-        <Button variant="ghost" onClick={downloadTemplate}>
+        <Button variant={variant} onClick={downloadTemplate}>
           <Icon name="Download" size={18} className="mr-2" />
           {label}
         </Button>

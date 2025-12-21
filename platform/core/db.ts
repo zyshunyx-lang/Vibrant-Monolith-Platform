@@ -28,7 +28,10 @@ export const INITIAL_DATA: DBContent = {
       calendarOverrides: [],
       slotConfigs: [],
       rosterConfigs: {},
-      schedules: []
+      schedules: [],
+      rotationState: {},
+      savedProfiles: [],
+      currentProfileName: '默认方案'
     },
     menu: {}
   }
@@ -42,9 +45,21 @@ export const loadDb = (): DBContent => {
   }
   try {
     const parsed = JSON.parse(data);
-    // Deep merge to ensure duty structure exists even if localStorage has old data
-    if (!parsed.modules.duty || !parsed.modules.duty.categories) {
+    // Deep consistency check for duty module
+    if (!parsed.modules.duty) {
       parsed.modules.duty = INITIAL_DATA.modules.duty;
+    } else {
+      // Ensure all arrays and objects exist to prevent runtime crashes
+      const d = parsed.modules.duty;
+      d.categories = d.categories || [];
+      d.rules = d.rules || [];
+      d.calendarOverrides = d.calendarOverrides || [];
+      d.slotConfigs = d.slotConfigs || [];
+      d.rosterConfigs = d.rosterConfigs || {};
+      d.schedules = d.schedules || [];
+      d.rotationState = d.rotationState || {};
+      d.savedProfiles = d.savedProfiles || [];
+      d.currentProfileName = d.currentProfileName || '默认方案';
     }
     return parsed;
   } catch (e) {

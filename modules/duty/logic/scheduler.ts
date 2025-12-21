@@ -1,6 +1,6 @@
 
 import { User } from '../../../platform/core/types';
-import { DutyModuleSchema, Schedule, RuleType } from '../types';
+import { DutyModuleSchema, Schedule, RuleType, RotationState, RotationStrategy } from '../types';
 
 /**
  * Helper to determine date type
@@ -18,65 +18,111 @@ const getDateType = (date: Date, overrides: DutyModuleSchema['calendarOverrides'
   return 'workday';
 };
 
+/**
+ * Get the next user in a sorted loop
+ */
+const getNextUser = (
+  pool: User[], 
+  lastUserId: string | undefined,
+  usedToday: Set<string>
+): User | null => {
+  if (pool.length === 0) return null;
+  
+  // Find index of last user in the FULL pool (to maintain loop integrity)
+  const lastIndex = pool.findIndex(u => u.id === lastUserId);
+  
+  // Search for the next available user starting from lastIndex + 1
+  for (let i = 1; i <= pool.length; i++) {
+    const nextIdx = (lastIndex + i) % pool.length;
+    const candidate = pool[nextIdx];
+    
+    // Check if this candidate is usable today
+    if (!usedToday.has(candidate.id)) {
+      return candidate;
+    }
+  }
+  
+  return null;
+};
+
 export const generateMonthlySchedule = (
   year: number,
   month: number,
   users: User[],
   dutyData: DutyModuleSchema
-): Schedule[] => {
-  const { rosterConfigs, categories, rules, calendarOverrides, slotConfigs } = dutyData;
+): { schedules: Schedule[], nextRotationState: RotationState } => {
+  const { rosterConfigs, rules, calendarOverrides, slotConfigs, rotationState } = dutyData;
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const schedules: Schedule[] = [];
+  
+  // Create a mutable copy of the rotation state to track pointers during generation
+  const currentRotationState = { ...rotationState };
 
-  // 1. Prepare candidate pools for each category
-  // Tracks how many times each user has worked this month to ensure fairness
-  const userStats: Record<string, { count: number; lastDate: number }> = {};
-  users.forEach(u => {
-    userStats[u.id] = { count: 0, lastDate: -100 }; // Initialize with "long ago"
+  // 1. Prepare candidate pools by Category, sorted by sortOrder
+  const categoryPools: Record<string, User[]> = {};
+  users.forEach(user => {
+    const config = rosterConfigs[user.id];
+    // Must be Active, Not Exempt, and have a Category
+    if (user.isActive && config && !config.isExempt && config.categoryId) {
+      if (!categoryPools[config.categoryId]) categoryPools[config.categoryId] = [];
+      categoryPools[config.categoryId].push(user);
+    }
   });
 
-  // 2. Iterate through each day
+  // Sort each pool by defined sortOrder
+  Object.keys(categoryPools).forEach(catId => {
+    categoryPools[catId].sort((a, b) => {
+      const orderA = rosterConfigs[a.id]?.sortOrder || 0;
+      const orderB = rosterConfigs[b.id]?.sortOrder || 0;
+      return orderA - orderB;
+    });
+  });
+
+  // 2. Iterate through each day of the target month
   for (let d = 1; d <= daysInMonth; d++) {
     const date = new Date(year, month, d);
     const dateStr = date.toISOString().split('T')[0];
     const todayType = getDateType(date, calendarOverrides);
+    const isHolidayOrWeekend = todayType === 'holiday' || todayType === 'weekend';
     
     const dailySlots: { slotId: number; userId: string }[] = [];
     const usedToday = new Set<string>();
 
-    // 3. For each configured slot
+    // 3. Process each Slot in order
     slotConfigs.sort((a, b) => a.id - b.id).forEach(slot => {
-      // Find eligible candidates for this slot on this specific day
-      const candidates = users.filter(user => {
-        const config = rosterConfigs[user.id];
-        if (!config || config.isExempt || !user.isActive || usedToday.has(user.id)) return false;
+      let slotFilled = false;
+
+      // Check each allowed category for this slot
+      for (const catId of slot.allowedCategoryIds) {
+        if (slotFilled) break;
+
+        const rule = rules.find(r => r.categoryId === catId);
+        if (!rule) continue;
+
+        // Check if category participates on this type of day
+        const participatesToday = rule.ruleTypes.includes('ordinary') || rule.ruleTypes.includes(todayType);
+        if (!participatesToday) continue;
+
+        // Determine Strategy and Pointer Track
+        const strategy: RotationStrategy = rule.strategy || 'unified_loop';
+        let trackKey = `${catId}_unified`;
         
-        // Check if user belongs to one of the allowed categories for this slot
-        if (!slot.allowedCategoryIds.includes(config.categoryId)) return false;
+        if (strategy === 'split_loop') {
+          trackKey = isHolidayOrWeekend ? `${catId}_holiday` : `${catId}_workday`;
+        }
 
-        // Check if category has a rule that matches today's type
-        const categoryRules = rules.find(r => r.categoryId === config.categoryId);
-        if (!categoryRules) return false;
+        // Find candidate in pool
+        const pool = categoryPools[catId] || [];
+        const lastUserId = currentRotationState[trackKey];
+        const selected = getNextUser(pool, lastUserId, usedToday);
 
-        return categoryRules.ruleTypes.includes('ordinary') || categoryRules.ruleTypes.includes(todayType);
-      });
-
-      if (candidates.length > 0) {
-        // Fairness sorting: Prioritize those with fewest shifts and longest rest
-        candidates.sort((a, b) => {
-          const statsA = userStats[a.id];
-          const statsB = userStats[b.id];
-          if (statsA.count !== statsB.count) return statsA.count - statsB.count;
-          return statsA.lastDate - statsB.lastDate;
-        });
-
-        const selected = candidates[0];
-        dailySlots.push({ slotId: slot.id, userId: selected.id });
-        usedToday.add(selected.id);
-        
-        // Update stats
-        userStats[selected.id].count++;
-        userStats[selected.id].lastDate = d;
+        if (selected) {
+          dailySlots.push({ slotId: slot.id, userId: selected.id });
+          usedToday.add(selected.id);
+          // Update pointer track
+          currentRotationState[trackKey] = selected.id;
+          slotFilled = true;
+        }
       }
     });
 
@@ -90,5 +136,5 @@ export const generateMonthlySchedule = (
     }
   }
 
-  return schedules;
+  return { schedules, nextRotationState: currentRotationState };
 };
