@@ -1,46 +1,93 @@
 
 import { User } from '../../../platform/core/types';
-import { DutyConfig, Schedule } from '../types';
+import { DutyModuleSchema, Schedule, RuleType } from '../types';
+
+/**
+ * Helper to determine date type
+ */
+const getDateType = (date: Date, overrides: DutyModuleSchema['calendarOverrides']): RuleType => {
+  const dateStr = date.toISOString().split('T')[0];
+  const override = overrides.find(o => o.date === dateStr);
+  
+  if (override) {
+    return override.type === 'holiday' ? 'holiday' : 'workday';
+  }
+
+  const day = date.getDay();
+  if (day === 0 || day === 6) return 'weekend';
+  return 'workday';
+};
 
 export const generateMonthlySchedule = (
   year: number,
-  month: number, // 0-11
+  month: number,
   users: User[],
-  configs: Record<string, DutyConfig>
+  dutyData: DutyModuleSchema
 ): Schedule[] => {
-  // 1. Get eligible users
-  const eligibleUsers = users
-    .filter(u => u.isActive && !configs[u.id]?.isExempt)
-    .sort((a, b) => (configs[a.id]?.sortOrder || 0) - (configs[b.id]?.sortOrder || 0));
-
-  if (eligibleUsers.length < 2) return [];
-
-  const schedules: Schedule[] = [];
+  const { rosterConfigs, categories, rules, calendarOverrides, slotConfigs } = dutyData;
   const daysInMonth = new Date(year, month + 1, 0).getDate();
-  
-  let userIndex = 0;
+  const schedules: Schedule[] = [];
 
-  for (let day = 1; day <= daysInMonth; day++) {
-    const date = new Date(year, month, day);
-    const dayOfWeek = date.getDay();
+  // 1. Prepare candidate pools for each category
+  // Tracks how many times each user has worked this month to ensure fairness
+  const userStats: Record<string, { count: number; lastDate: number }> = {};
+  users.forEach(u => {
+    userStats[u.id] = { count: 0, lastDate: -100 }; // Initialize with "long ago"
+  });
 
-    // Skip weekends (0 is Sunday, 6 is Saturday)
-    if (dayOfWeek === 0 || dayOfWeek === 6) continue;
-
-    const leader = eligibleUsers[userIndex % eligibleUsers.length];
-    const member = eligibleUsers[(userIndex + 1) % eligibleUsers.length];
-
-    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  // 2. Iterate through each day
+  for (let d = 1; d <= daysInMonth; d++) {
+    const date = new Date(year, month, d);
+    const dateStr = date.toISOString().split('T')[0];
+    const todayType = getDateType(date, calendarOverrides);
     
-    schedules.push({
-      id: `${dateStr}-${Math.random().toString(36).substr(2, 9)}`,
-      date: dateStr,
-      leaderId: leader.id,
-      memberId: member.id,
-      status: 'draft'
+    const dailySlots: { slotId: number; userId: string }[] = [];
+    const usedToday = new Set<string>();
+
+    // 3. For each configured slot
+    slotConfigs.sort((a, b) => a.id - b.id).forEach(slot => {
+      // Find eligible candidates for this slot on this specific day
+      const candidates = users.filter(user => {
+        const config = rosterConfigs[user.id];
+        if (!config || config.isExempt || !user.isActive || usedToday.has(user.id)) return false;
+        
+        // Check if user belongs to one of the allowed categories for this slot
+        if (!slot.allowedCategoryIds.includes(config.categoryId)) return false;
+
+        // Check if category has a rule that matches today's type
+        const categoryRules = rules.find(r => r.categoryId === config.categoryId);
+        if (!categoryRules) return false;
+
+        return categoryRules.ruleTypes.includes('ordinary') || categoryRules.ruleTypes.includes(todayType);
+      });
+
+      if (candidates.length > 0) {
+        // Fairness sorting: Prioritize those with fewest shifts and longest rest
+        candidates.sort((a, b) => {
+          const statsA = userStats[a.id];
+          const statsB = userStats[b.id];
+          if (statsA.count !== statsB.count) return statsA.count - statsB.count;
+          return statsA.lastDate - statsB.lastDate;
+        });
+
+        const selected = candidates[0];
+        dailySlots.push({ slotId: slot.id, userId: selected.id });
+        usedToday.add(selected.id);
+        
+        // Update stats
+        userStats[selected.id].count++;
+        userStats[selected.id].lastDate = d;
+      }
     });
 
-    userIndex += 2;
+    if (dailySlots.length > 0) {
+      schedules.push({
+        id: `${dateStr}-${Math.random().toString(36).substr(2, 5)}`,
+        date: dateStr,
+        slots: dailySlots,
+        status: 'draft'
+      });
+    }
   }
 
   return schedules;

@@ -1,5 +1,5 @@
-
 import { DutyModule } from './duty/definition';
+import { MenuModule } from './menu/definition';
 
 /**
  * AllModules Registry
@@ -7,4 +7,5 @@ import { DutyModule } from './duty/definition';
  */
 export const AllModules = [
   DutyModule,
+  MenuModule,
 ];

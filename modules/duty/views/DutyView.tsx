@@ -1,74 +1,89 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { loadDb } from '../../../platform/core/db';
 import { CalendarGrid } from '../../../platform/ui/complex/CalendarGrid';
 import { Icon } from '../../../platform/ui/basic/Icon';
+import { useTranslation } from '../../../platform/core/i18n';
 import { DutyModuleSchema } from '../types';
 
 export const DutyView: React.FC = () => {
+  const { t } = useTranslation();
   const [currentDate, setCurrentDate] = useState(new Date());
-  const db = loadDb();
+  const [db, setDb] = useState(loadDb());
   
-  // Ensure we have a valid structure even if the module is uninitialized or partially initialized
-  const dutyData: DutyModuleSchema = {
-    rosterConfigs: db.modules?.duty?.rosterConfigs || {},
-    schedules: db.modules?.duty?.schedules || []
+  useEffect(() => {
+    setDb(loadDb());
+    const handleFocus = () => setDb(loadDb());
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, []);
+  
+  const dutyData: DutyModuleSchema = db.modules?.duty?.categories ? db.modules.duty : {
+    categories: [],
+    rules: [],
+    calendarOverrides: [],
+    slotConfigs: [],
+    rosterConfigs: {},
+    schedules: []
   };
 
-  const getUserName = (id: string) => {
-    const user = db.sys_config?.users?.find(u => u.id === id);
-    return user ? user.realName : 'Unknown';
-  };
-
-  // Helper function to get local date string YYYY-MM-DD
-  const toLocalDateString = (date: Date) => {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  };
+  const getUserName = (id: string) => db.sys_config?.users?.find(u => u.id === id)?.realName || 'Unknown';
 
   const renderDutyCell = (date: Date) => {
-    const dateStr = toLocalDateString(date);
-    
-    // Safety check on schedules array
+    const dateStr = date.toISOString().split('T')[0];
     const schedule = dutyData.schedules?.find(s => s.date === dateStr);
 
     if (!schedule) return null;
 
-    // Display "Draft" status if not published
     if (schedule.status === 'draft') {
       return (
-        <div className="flex flex-col items-center justify-center h-full opacity-40">
-          <Icon name="EyeOff" size={14} className="text-slate-400" />
-          <span className="text-[10px] font-bold uppercase mt-1 text-slate-400">Draft</span>
+        <div className="flex flex-col items-center justify-center h-full opacity-30">
+          <Icon name="EyeOff" size={14} />
+          <span className="text-[9px] font-black uppercase mt-1">{t('duty.view.draft')}</span>
         </div>
       );
     }
 
-    // Display published roster entries
     return (
-      <div className="flex flex-col gap-1.5 mt-1">
-        <div className="flex items-center gap-1.5 bg-indigo-50 px-2 py-1 rounded-md border border-indigo-100 shadow-sm">
-          <Icon name="Crown" size={12} className="text-indigo-600 shrink-0" />
-          <span className="text-[11px] font-black text-indigo-900 truncate">
-            {getUserName(schedule.leaderId)}
-          </span>
-        </div>
-        <div className="flex items-center gap-1.5 bg-white px-2 py-1 rounded-md border border-slate-200 shadow-sm">
-          <Icon name="User" size={12} className="text-slate-400 shrink-0" />
-          <span className="text-[11px] font-bold text-slate-700 truncate">
-            {getUserName(schedule.memberId)}
-          </span>
-        </div>
+      <div className="flex flex-col gap-1 mt-1">
+        {schedule.slots.map((slot, idx) => {
+          const slotDef = dutyData.slotConfigs.find(s => s.id === slot.slotId);
+          return (
+            <div key={idx} className="bg-slate-50 border border-slate-100 p-1.5 rounded-lg shadow-sm flex items-center justify-between group hover:bg-indigo-50 hover:border-indigo-100 transition-all">
+              <div className="flex flex-col min-w-0">
+                <span className="text-[8px] font-black text-slate-400 uppercase leading-none mb-0.5 truncate group-hover:text-indigo-400">
+                  {slotDef?.name || `Slot ${slot.slotId}`}
+                </span>
+                <span className="text-[10px] font-bold text-slate-800 truncate leading-none group-hover:text-indigo-900">
+                  {getUserName(slot.userId)}
+                </span>
+              </div>
+              <div className="w-5 h-5 rounded-md bg-white border border-slate-100 flex items-center justify-center shrink-0">
+                <Icon name="User" size={10} className="text-slate-300 group-hover:text-indigo-300" />
+              </div>
+            </div>
+          );
+        })}
       </div>
     );
   };
 
   return (
     <div className="space-y-6 animate-in fade-in duration-700">
-      <header>
-        <h2 className="text-3xl font-black text-slate-900 tracking-tight">Duty Roster</h2>
-        <p className="text-slate-500 font-medium">Monthly operational schedule.</p>
+      <header className="flex items-end justify-between">
+        <div>
+          <h2 className="text-3xl font-black text-slate-900 tracking-tight">{t('duty.view.title')}</h2>
+          <p className="text-slate-500 font-medium">{t('duty.view.subtitle')}</p>
+        </div>
+        <div className="hidden md:flex gap-4">
+           {dutyData.categories.map(cat => (
+             <div key={cat.id} className="flex flex-col items-end">
+               <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{cat.name}</span>
+               <span className="text-sm font-black text-slate-700">
+                 {t('duty.view.active_count', { count: Object.values(dutyData.rosterConfigs).filter(r => r.categoryId === cat.id && !r.isExempt).length.toString() })}
+               </span>
+             </div>
+           ))}
+        </div>
       </header>
 
       <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100">

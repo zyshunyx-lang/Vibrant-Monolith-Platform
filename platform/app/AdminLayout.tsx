@@ -2,14 +2,16 @@ import React from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { Icon, IconName } from '../ui/basic/Icon';
 import { AllModules } from '../../modules/index';
+import { useTranslation } from '../core/i18n';
 
 export const AdminLayout: React.FC = () => {
   const location = useLocation();
+  const { t } = useTranslation();
 
   const menuItems = [
-    { name: 'System Overview', path: '/admin', icon: 'LayoutDashboard' as IconName },
-    { name: 'User Management', path: '/admin/users', icon: 'Users' as IconName },
-    { name: 'System Logs', path: '/admin/logs', icon: 'ScrollText' as IconName },
+    { name: t('admin.menu.overview'), path: '/admin', icon: 'LayoutDashboard' as IconName },
+    { name: t('admin.menu.users'), path: '/admin/users', icon: 'Users' as IconName },
+    { name: t('admin.menu.logs'), path: '/admin/logs', icon: 'ScrollText' as IconName },
   ];
 
   return (
@@ -21,13 +23,13 @@ export const AdminLayout: React.FC = () => {
               <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white">
                 <Icon name="Settings" size={18} />
               </div>
-              <h1 className="text-lg font-black text-slate-800 tracking-tight uppercase">Admin Center</h1>
+              <h1 className="text-lg font-black text-slate-800 tracking-tight uppercase">{t('admin.title')}</h1>
             </Link>
         </div>
 
         <nav className="flex-1 p-6 space-y-8 overflow-y-auto custom-scrollbar">
           <section>
-            <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-4 px-4">Core System</h4>
+            <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-4 px-4">{t('admin.group.core')}</h4>
             <div className="space-y-1">
               {menuItems.map((item) => (
                 <Link
@@ -49,7 +51,7 @@ export const AdminLayout: React.FC = () => {
 
           {AllModules.length > 0 && (
             <section>
-              <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-4 px-4">Business Modules</h4>
+              <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-4 px-4">{t('admin.group.business')}</h4>
               <div className="space-y-1">
                 {AllModules.map((module: any) => {
                   const adminRoute = module.adminRoute || `/admin/modules/${module.id}`;
@@ -66,7 +68,7 @@ export const AdminLayout: React.FC = () => {
                       }`}
                     >
                       <Icon name={module.icon || 'Box'} size={18} />
-                      {module.name} Admin
+                      {t(`module.${module.id}.name`)}
                     </Link>
                   );
                 })}
@@ -81,7 +83,7 @@ export const AdminLayout: React.FC = () => {
             className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-slate-100 text-slate-600 font-bold hover:bg-slate-200 transition-all text-sm"
           >
             <Icon name="ArrowLeft" size={16} />
-            Exit Admin
+            {t('admin.exit')}
           </Link>
         </div>
       </aside>

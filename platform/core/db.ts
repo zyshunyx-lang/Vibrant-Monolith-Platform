@@ -9,20 +9,27 @@ export const INITIAL_DATA: DBContent = {
       {
         id: '1',
         username: 'admin',
-        realName: 'Super Admin',
+        realName: '超级管理员',
         role: 'super_admin',
-        department: 'Platform',
+        department: '管理部',
         phone: '13800000000',
         password: '123',
         isActive: true
       }
     ],
-    departments: ['Platform', 'Operations', 'Finance', 'HR']
+    departments: ['管理部', '技术部', '财务部', '人事部']
   },
   notifications: [],
   logs: [],
   modules: {
-    duty: {},
+    duty: {
+      categories: [],
+      rules: [],
+      calendarOverrides: [],
+      slotConfigs: [],
+      rosterConfigs: {},
+      schedules: []
+    },
     menu: {}
   }
 };
@@ -34,7 +41,12 @@ export const loadDb = (): DBContent => {
     return INITIAL_DATA;
   }
   try {
-    return JSON.parse(data);
+    const parsed = JSON.parse(data);
+    // Deep merge to ensure duty structure exists even if localStorage has old data
+    if (!parsed.modules.duty || !parsed.modules.duty.categories) {
+      parsed.modules.duty = INITIAL_DATA.modules.duty;
+    }
+    return parsed;
   } catch (e) {
     console.error("Database corruption detected. Reverting to initial data.", e);
     return INITIAL_DATA;
@@ -47,5 +59,9 @@ export const saveDb = (newDb: DBContent): void => {
 
 export const getCurrentUser = (): User | null => {
   const session = localStorage.getItem('APP_SESSION');
-  return session ? JSON.parse(session) : null;
+  if (session) return JSON.parse(session);
+  
+  // Developer Fallback: Automatically return admin user if no session (for debugging)
+  const db = loadDb();
+  return db.sys_config.users.find(u => u.username === 'admin') || null;
 };

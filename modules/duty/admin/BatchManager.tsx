@@ -5,147 +5,143 @@ import { Button } from '../../../platform/ui/basic/Button';
 import { Icon } from '../../../platform/ui/basic/Icon';
 import { generateMonthlySchedule } from '../logic/scheduler';
 import { CalendarGrid } from '../../../platform/ui/complex/CalendarGrid';
-import { Schedule } from '../types';
+import { Modal } from '../../../platform/ui/layout/Modal';
+import { useTranslation } from '../../../platform/core/i18n';
+import { Schedule, DutyModuleSchema } from '../types';
 
 export const BatchManager: React.FC = () => {
+  const { t } = useTranslation();
   const [db, setDb] = useState(loadDb());
   const [viewDate, setViewDate] = useState(new Date());
-  
-  // Local state for draft/preview before persistence
   const [previewSchedules, setPreviewSchedules] = useState<Schedule[]>([]);
+  const [isPublishModalOpen, setIsPublishModalOpen] = useState(false);
 
-  // Generate draft based on roster rules
+  const dutyData: DutyModuleSchema = (db.modules.duty && db.modules.duty.categories) 
+    ? db.modules.duty 
+    : {
+        categories: [],
+        rules: [],
+        calendarOverrides: [],
+        slotConfigs: [],
+        rosterConfigs: {},
+        schedules: []
+      };
+
   const handleGenerate = () => {
     const year = viewDate.getFullYear();
     const month = viewDate.getMonth();
-    
-    const newSchedules = generateMonthlySchedule(
-      year, 
-      month, 
-      db.sys_config?.users || [], 
-      db.modules?.duty?.rosterConfigs || {}
-    );
+    const users = db.sys_config?.users || [];
 
+    if (dutyData.slotConfigs.length === 0) {
+      alert(t('duty.engine.slot_missing_error'));
+      return;
+    }
+
+    const newSchedules = generateMonthlySchedule(year, month, users, dutyData);
     setPreviewSchedules(newSchedules);
   };
 
-  // Persist draft to database and notify system
-  const handlePublish = () => {
-    if (previewSchedules.length === 0) return;
+  const executePublish = () => {
+    const year = viewDate.getFullYear();
+    const monthStr = String(viewDate.getMonth() + 1).padStart(2, '0');
+    const monthPrefix = `${year}-${monthStr}`;
 
-    if (!window.confirm(`Confirm to publish ${previewSchedules.length} shifts? This will notify all users.`)) return;
-
-    const published = previewSchedules.map(s => ({ ...s, status: 'published' } as Schedule));
-
-    const currentSchedules = db.modules?.duty?.schedules || [];
-    const monthPrefix = `${viewDate.getFullYear()}-${String(viewDate.getMonth() + 1).padStart(2, '0')}`;
+    const currentSchedules = dutyData.schedules || [];
     const otherSchedules = currentSchedules.filter(s => !s.date.startsWith(monthPrefix));
     
+    const published = previewSchedules.map(s => ({ ...s, status: 'published' as const }));
     const finalSchedules = [...otherSchedules, ...published];
-
-    const newNotif = {
-      id: Date.now().toString(),
-      targetUserId: 'ALL',
-      type: 'info' as const,
-      content: `📅 ${viewDate.getMonth() + 1}月排班表已公示，请及时查看。`,
-      isRead: false,
-      createdAt: new Date().toISOString(),
-      linkUrl: '/duty'
-    };
 
     const newDb = {
       ...db,
-      notifications: [newNotif, ...db.notifications],
       modules: {
         ...db.modules,
-        duty: {
-          ...db.modules?.duty,
-          schedules: finalSchedules
-        }
+        duty: { ...dutyData, schedules: finalSchedules }
       }
     };
 
     saveDb(newDb);
     setDb(newDb);
     setPreviewSchedules([]);
-    alert('Schedule published successfully!');
+    setIsPublishModalOpen(false);
   };
 
   const getUserName = (id: string) => db.sys_config?.users?.find(u => u.id === id)?.realName || 'Unknown';
 
-  const toLocalDateString = (date: Date) => {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  };
-
   const renderCell = (date: Date) => {
-    const dateStr = toLocalDateString(date);
-    
+    const dateStr = date.toISOString().split('T')[0];
     const inPreview = previewSchedules?.find(s => s.date === dateStr);
-    const inDb = db.modules?.duty?.schedules?.find(s => s.date === dateStr);
-    
+    const inDb = dutyData.schedules?.find(s => s.date === dateStr);
     const schedule = inPreview || inDb;
 
     if (!schedule) return null;
 
-    const isPreviewItem = !!inPreview;
+    const isPreview = !!inPreview;
 
     return (
-      <div className={`mt-1 p-1 rounded border text-[10px] font-bold flex flex-col gap-1
-        ${isPreviewItem 
-          ? 'bg-orange-50 border-orange-200 text-orange-800'
-          : 'bg-emerald-50 border-emerald-200 text-emerald-800'
-        }`}>
-        <div className="flex justify-between items-center">
-           <span className="truncate">{getUserName(schedule.leaderId)}</span>
-           {isPreviewItem && <Icon name="Zap" size={8} />}
-        </div>
-        <div className="opacity-70 truncate">{getUserName(schedule.memberId)}</div>
+      <div className={`mt-1 flex flex-col gap-1 ${isPreview ? 'animate-pulse' : ''}`}>
+        {schedule.slots.map(slot => (
+          <div 
+            key={slot.slotId} 
+            className={`px-2 py-0.5 rounded text-[9px] font-black border truncate
+              ${isPreview ? 'bg-orange-50 border-orange-200 text-orange-700' : 'bg-indigo-50 border-indigo-100 text-indigo-700'}
+            `}
+          >
+            {getUserName(slot.userId)}
+          </div>
+        ))}
       </div>
     );
   };
 
+  const monthName = viewDate.toLocaleString('default', { month: 'long', year: 'numeric' });
+
   return (
-    <ColorCard title="Batch Scheduler" variant="blue">
-      <div className="flex flex-col gap-6">
-        <div className="flex justify-between items-end bg-white/50 p-4 rounded-xl border border-blue-100">
-           <div>
-              <p className="text-sm text-blue-800 font-bold mb-2">Operation Mode</p>
-              <div className="flex gap-2">
-                <Button onClick={handleGenerate} variant="primary">
-                  <Icon name="Wand2" size={16} className="mr-2"/> 
-                  Auto-Generate Draft
-                </Button>
-                {previewSchedules.length > 0 && (
-                  <Button onClick={handlePublish} variant="secondary" className="bg-emerald-500 hover:bg-emerald-600 text-white border-none">
-                    <Icon name="Send" size={16} className="mr-2"/> 
-                    Publish ({previewSchedules.length})
-                  </Button>
-                )}
-              </div>
-           </div>
-           <div className="text-right">
-             <div className="text-xs font-bold text-blue-400 uppercase tracking-widest mb-1">Status</div>
-             {previewSchedules.length > 0 
-               ? <span className="text-orange-600 font-black animate-pulse">PREVIEW MODE</span>
-               : <span className="text-slate-400 font-bold">VIEWING DATABASE</span>
-             }
-           </div>
+    <ColorCard title={t('duty.engine.title')} variant="blue">
+      <div className="space-y-6">
+        <div className="flex flex-wrap items-center gap-4 bg-white/50 p-4 rounded-3xl border border-blue-100">
+          <input 
+            type="month" 
+            className="bg-white border border-blue-200 rounded-xl px-4 py-2 text-sm font-bold text-slate-700"
+            value={`${viewDate.getFullYear()}-${String(viewDate.getMonth() + 1).padStart(2, '0')}`}
+            onChange={(e) => {
+              const val = e.target.value;
+              if(val) {
+                const [y, m] = val.split('-');
+                setViewDate(new Date(parseInt(y), parseInt(m) - 1, 1));
+                setPreviewSchedules([]);
+              }
+            }}
+          />
+          <Button onClick={handleGenerate} variant="primary">
+            <Icon name="Wand2" size={16} className="mr-2"/> {t('duty.engine.generate')}
+          </Button>
+          {previewSchedules.length > 0 && (
+            <Button onClick={() => setIsPublishModalOpen(true)} className="bg-emerald-500 hover:bg-emerald-600 text-white border-none shadow-emerald-100">
+              <Icon name="Send" size={16} className="mr-2"/> {t('duty.engine.publish')}
+            </Button>
+          )}
         </div>
 
-        <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
-          <CalendarGrid 
-            currentDate={viewDate}
-            onMonthChange={(d) => {
-              setViewDate(d);
-              setPreviewSchedules([]);
-            }}
-            renderCell={renderCell}
-          />
-        </div>
+        <CalendarGrid 
+          currentDate={viewDate}
+          onMonthChange={(d) => { setViewDate(d); setPreviewSchedules([]); }}
+          renderCell={renderCell}
+        />
       </div>
+
+      <Modal isOpen={isPublishModalOpen} onClose={() => setIsPublishModalOpen(false)} title={t('duty.engine.confirm_title')} footer={
+        <div className="flex gap-3">
+          <Button variant="secondary" onClick={() => setIsPublishModalOpen(false)}>{t('common.cancel')}</Button>
+          <Button onClick={executePublish}>{t('common.save')}</Button>
+        </div>
+      }>
+        <div className="text-center p-4">
+          <p className="text-slate-600 font-medium mb-6">
+            {t('duty.engine.confirm_msg', { month: monthName })}
+          </p>
+        </div>
+      </Modal>
     </ColorCard>
   );
 };
