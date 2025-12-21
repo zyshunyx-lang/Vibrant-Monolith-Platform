@@ -9,7 +9,11 @@ import { DutyConfig, DutyModuleSchema } from '../types';
 
 export const RosterEditor: React.FC = () => {
   const [db, setDb] = useState(loadDb());
-  const dutyData: DutyModuleSchema = db.modules.duty || { rosterConfigs: {}, schedules: [] };
+  
+  // Bug fix: Ensure rosterConfigs exists even if db.modules.duty is just {}
+  const dutyData: DutyModuleSchema = (db.modules.duty && db.modules.duty.rosterConfigs)
+    ? db.modules.duty
+    : { rosterConfigs: {}, schedules: [] };
 
   const users = db.sys_config.users;
 

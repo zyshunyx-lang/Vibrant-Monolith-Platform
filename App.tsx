@@ -1,6 +1,6 @@
-
 import React from 'react';
-import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { HashRouter, Routes, Route, Navigate, Link } from 'react-router-dom';
+
 import { MainLayout } from './platform/app/MainLayout';
 import { AdminLayout } from './platform/app/AdminLayout';
 import { Dashboard } from './platform/admin/Dashboard';
@@ -59,9 +59,24 @@ const App: React.FC = () => {
           <Route path="/" element={<HomeView />} />
           <Route path="/duty" element={<DutyView />} />
           <Route path="/apps" element={
-            <div className="py-20 text-center">
-              <Icon name="Search" size={48} className="mx-auto text-slate-300 mb-4" />
-              <h3 className="text-2xl font-bold text-slate-400">Application Center Coming Soon</h3>
+            <div className="space-y-8 animate-in fade-in duration-500">
+              <header>
+                <h2 className="text-3xl font-black text-slate-900">Apps Center</h2>
+                <p className="text-slate-500 font-medium">Access your business tools.</p>
+              </header>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <Link to="/duty" className="block group">
+                  <ColorCard variant="blue" className="h-full hover:scale-[1.02] transition-transform cursor-pointer">
+                    <div className="flex items-center gap-4 mb-4">
+                      <div className="p-3 bg-white/20 rounded-xl text-white">
+                        <Icon name="CalendarClock" size={24} />
+                      </div>
+                      <h3 className="text-xl font-bold text-white">Duty Roster</h3>
+                    </div>
+                    <p className="text-blue-100 font-medium">View monthly schedules, check shifts, and manage team availability.</p>
+                  </ColorCard>
+                </Link>
+              </div>
             </div>
           } />
         </Route>

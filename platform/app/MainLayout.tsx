@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { Icon } from '../ui/basic/Icon';
@@ -8,7 +7,13 @@ import { loadDb } from '../core/db';
 export const MainLayout: React.FC = () => {
   const location = useLocation();
   const db = loadDb();
-  const user = db.sys_config.users[0]; // Simplified: current user logic
+  
+  // Safety check for user
+  const user = db.sys_config.users?.[0] || {
+    username: 'unknown',
+    realName: 'Unknown User',
+    role: 'user'
+  };
 
   const navLinks = [
     { name: 'Home', path: '/', icon: 'Home' as const },

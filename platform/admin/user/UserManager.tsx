@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { loadDb, saveDb } from '../../core/db';
 import { User, UserRole } from '../../core/types';
@@ -14,52 +13,69 @@ import { Select } from '../../ui/form/Select';
 export const UserManager: React.FC = () => {
   const [db, setDb] = useState(loadDb());
   const [users, setUsers] = useState<User[]>(db.sys_config.users);
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [newUser, setNewUser] = useState<Partial<User>>({
-    role: 'user',
-    isActive: true,
-    department: 'Platform'
-  });
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<Partial<User>>({});
 
-  useEffect(() => {
-    const updatedDb = loadDb();
-    setDb(updatedDb);
-    setUsers(updatedDb.sys_config.users);
-  }, []);
-
-  const handleSave = (updatedUsers: User[]) => {
-    const newDb = { ...db, sys_config: { ...db.sys_config, users: updatedUsers } };
-    saveDb(newDb);
-    setDb(newDb);
-    setUsers(updatedUsers);
+  // 重新加载数据
+  const reloadData = () => {
+    const freshDb = loadDb();
+    setDb(freshDb);
+    setUsers(freshDb.sys_config.users);
   };
 
-  const deleteUser = (id: string) => {
-    if (id === '1') return alert('Cannot delete root admin');
-    if (confirm('Are you sure you want to delete this user?')) {
-      handleSave(users.filter(u => u.id !== id));
+  useEffect(() => { reloadData(); }, []);
+
+  const persistUsers = (newUsers: User[]) => {
+    const newDb = { ...db, sys_config: { ...db.sys_config, users: newUsers } };
+    saveDb(newDb);
+    reloadData(); 
+  };
+
+  // ★ 核心修复：防止事件冒泡，增加删除确认
+  const handleDelete = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation(); // ★ 防止点击行触发其他事件
+    e.preventDefault();
+
+    if (id === '1') {
+      alert('Cannot delete root admin');
+      return;
+    }
+    
+    // 使用原生 confirm，最稳健
+    if (window.confirm('Are you sure you want to delete this user? This action cannot be undone.')) {
+      const filtered = users.filter(u => u.id !== id);
+      persistUsers(filtered);
     }
   };
 
-  const addUser = () => {
-    if (!newUser.username || !newUser.realName) return alert('Please fill in required fields');
-    
-    const userToAdd: User = {
-      id: Date.now().toString(),
-      username: newUser.username!,
-      realName: newUser.realName!,
-      role: (newUser.role as UserRole) || 'user',
-      department: newUser.department || 'Platform',
-      phone: newUser.phone || '',
-      isActive: true,
-      password: '123'
-    };
-
-    handleSave([...users, userToAdd]);
-    setIsAddModalOpen(false);
-    setNewUser({ role: 'user', isActive: true, department: 'Platform' });
+  const openAdd = () => {
+    setEditingUser({ role: 'user', isActive: true, department: 'Platform' });
+    setIsModalOpen(true);
   };
 
+  const openEdit = (user: User) => {
+    setEditingUser({ ...user });
+    setIsModalOpen(true);
+  };
+
+  const handleSave = () => {
+    if (!editingUser.username || !editingUser.realName) return alert('Missing fields');
+    
+    let nextUsers = [...users];
+    if (editingUser.id) {
+      nextUsers = nextUsers.map(u => u.id === editingUser.id ? (editingUser as User) : u);
+    } else {
+      nextUsers.push({
+        ...editingUser,
+        id: Date.now().toString(),
+        password: '123'
+      } as User);
+    }
+    persistUsers(nextUsers);
+    setIsModalOpen(false);
+  };
+
+  // Excel 导入逻辑
   const handleExcelImport = (data: any[]) => {
     const importedUsers: User[] = data.map((item, index) => ({
       id: `import-${Date.now()}-${index}`,
@@ -72,7 +88,6 @@ export const UserManager: React.FC = () => {
       password: '123'
     }));
 
-    // Simple deduplication based on username
     const existingUsernames = new Set(users.map(u => u.username));
     const uniqueImports = importedUsers.filter(u => !existingUsernames.has(u.username));
 
@@ -81,127 +96,63 @@ export const UserManager: React.FC = () => {
       return;
     }
 
-    handleSave([...users, ...uniqueImports]);
+    persistUsers([...users, ...uniqueImports]);
     alert(`Successfully imported ${uniqueImports.length} users!`);
   };
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
-      <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-3xl font-black text-slate-900 tracking-tight">User Management</h2>
-          <p className="text-slate-500 font-medium mt-1">Central directory for all platform identities.</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <ExcelIO mode="import" onImport={handleExcelImport} label="Import Users" />
-          <Button onClick={() => setIsAddModalOpen(true)}>
-            <Icon name="UserPlus" size={18} className="mr-2" />
-            Add User
-          </Button>
+    <div className="space-y-8 animate-in fade-in">
+      <header className="flex justify-between items-center">
+        <h2 className="text-3xl font-black text-slate-900">User Management</h2>
+        <div className="flex gap-3">
+           <ExcelIO mode="import" onImport={handleExcelImport} label="Import Users" />
+           <Button onClick={openAdd}><Icon name="UserPlus" size={18} className="mr-2"/> Add User</Button>
         </div>
       </header>
 
-      <ColorCard className="!p-0 overflow-hidden border-slate-200">
-        <div className="overflow-x-auto custom-scrollbar">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-slate-50/50 border-b border-slate-100">
-                <th className="px-6 py-4 text-[11px] font-black text-slate-400 uppercase tracking-widest">User</th>
-                <th className="px-6 py-4 text-[11px] font-black text-slate-400 uppercase tracking-widest">Role</th>
-                <th className="px-6 py-4 text-[11px] font-black text-slate-400 uppercase tracking-widest">Department</th>
-                <th className="px-6 py-4 text-[11px] font-black text-slate-400 uppercase tracking-widest text-right">Actions</th>
+      <ColorCard variant="white" className="!p-0 border-slate-200">
+        <table className="w-full text-left">
+          <thead className="bg-slate-50 border-b border-slate-100">
+            <tr>
+              <th className="px-6 py-4 text-xs font-black text-slate-400 uppercase">User</th>
+              <th className="px-6 py-4 text-xs font-black text-slate-400 uppercase">Role</th>
+              <th className="px-6 py-4 text-right text-xs font-black text-slate-400 uppercase">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-50">
+            {users.map(user => (
+              <tr key={user.id} className="hover:bg-slate-50">
+                <td className="px-6 py-4">
+                  <div className="font-bold text-slate-900">{user.realName}</div>
+                  <div className="text-xs text-slate-400">@{user.username}</div>
+                </td>
+                <td className="px-6 py-4"><Badge variant="info">{user.role}</Badge></td>
+                <td className="px-6 py-4 text-right flex justify-end gap-2">
+                  <Button variant="ghost" size="sm" onClick={() => openEdit(user)}>
+                    <Icon name="Pencil" size={14}/>
+                  </Button>
+                  {/* ★ 修复：传入 event 对象以阻止冒泡 */}
+                  <Button variant="ghost" size="sm" className="text-rose-500" onClick={(e) => handleDelete(e, user.id)}>
+                    <Icon name="Trash2" size={14}/>
+                  </Button>
+                </td>
               </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-50">
-              {users.map(user => (
-                <tr key={user.id} className="hover:bg-slate-50/50 transition-colors group">
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-2xl bg-indigo-50 flex items-center justify-center text-indigo-600 font-black">
-                        {user.realName.charAt(0)}
-                      </div>
-                      <div>
-                        <div className="font-bold text-slate-900">{user.realName}</div>
-                        <div className="text-xs text-slate-400">@{user.username}</div>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <Badge variant={user.role === 'super_admin' ? 'danger' : 'info'}>
-                      {user.role}
-                    </Badge>
-                  </td>
-                  <td className="px-6 py-4 text-sm font-semibold text-slate-600">
-                    {user.department}
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Button variant="ghost" size="sm" className="h-8 w-8 !p-0">
-                        <Icon name="Pencil" size={14} />
-                      </Button>
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        className="h-8 w-8 !p-0 text-rose-500 hover:bg-rose-50"
-                        onClick={() => deleteUser(user.id)}
-                      >
-                        <Icon name="Trash2" size={14} />
-                      </Button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+            ))}
+          </tbody>
+        </table>
       </ColorCard>
 
-      <Modal
-        isOpen={isAddModalOpen}
-        onClose={() => setIsAddModalOpen(false)}
-        title="Add New User"
-        footer={
-          <div className="flex gap-3">
-             <Button variant="secondary" onClick={() => setIsAddModalOpen(false)}>Cancel</Button>
-             <Button onClick={addUser}>Create User</Button>
-          </div>
-        }
-      >
+      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingUser.id ? "Edit" : "Add"} footer={
+        <Button onClick={handleSave}>Save User</Button>
+      }>
         <div className="space-y-4">
-          <Input 
-            label="Username (Login Name)" 
-            placeholder="e.g. zhangsan" 
-            value={newUser.username || ''}
-            onChange={e => setNewUser({...newUser, username: e.target.value})}
-          />
-          <Input 
-            label="Real Name" 
-            placeholder="e.g. Zhang San" 
-            value={newUser.realName || ''}
-            onChange={e => setNewUser({...newUser, realName: e.target.value})}
-          />
-          <Select 
-            label="System Role"
-            value={newUser.role}
-            onChange={e => setNewUser({...newUser, role: e.target.value as UserRole})}
-            options={[
-              { label: 'Standard User', value: 'user' },
-              { label: 'Duty Admin', value: 'duty_admin' },
-              { label: 'Menu Admin', value: 'menu_admin' },
-              { label: 'Super Admin', value: 'super_admin' },
-            ]}
-          />
-          <Select 
-            label="Department"
-            value={newUser.department}
-            onChange={e => setNewUser({...newUser, department: e.target.value})}
-            options={db.sys_config.departments.map(d => ({ label: d, value: d }))}
-          />
-          <Input 
-            label="Phone Number" 
-            placeholder="Optional" 
-            value={newUser.phone || ''}
-            onChange={e => setNewUser({...newUser, phone: e.target.value})}
+          <Input label="Real Name" value={editingUser.realName || ''} onChange={e => setEditingUser({...editingUser, realName: e.target.value})} />
+          <Input label="Username" value={editingUser.username || ''} onChange={e => setEditingUser({...editingUser, username: e.target.value})} />
+           <Select 
+            label="Role"
+            value={editingUser.role}
+            onChange={e => setEditingUser({...editingUser, role: e.target.value as any})}
+            options={[{label:'User',value:'user'}, {label:'Super Admin',value:'super_admin'}, {label:'Duty Admin',value:'duty_admin'}]}
           />
         </div>
       </Modal>

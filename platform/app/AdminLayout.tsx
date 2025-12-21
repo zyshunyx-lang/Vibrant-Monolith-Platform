@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { Icon, IconName } from '../ui/basic/Icon';
@@ -52,17 +51,25 @@ export const AdminLayout: React.FC = () => {
             <section>
               <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-4 px-4">Business Modules</h4>
               <div className="space-y-1">
-                {/* Dynamically render module admin links */}
-                {AllModules.map((module: any) => (
-                  <Link
-                    key={module.id}
-                    to={`/admin/modules/${module.id}`}
-                    className="flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-bold text-slate-500 hover:text-slate-800 hover:bg-slate-50 transition-all"
-                  >
-                    <Icon name={module.icon || 'Box'} size={18} />
-                    {module.name} Admin
-                  </Link>
-                ))}
+                {AllModules.map((module: any) => {
+                  const adminRoute = module.adminRoute || `/admin/modules/${module.id}`;
+                  const isActive = adminRoute && location.pathname.startsWith(adminRoute);
+                  
+                  return (
+                    <Link
+                      key={module.id}
+                      to={adminRoute}
+                      className={`flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-bold transition-all ${
+                         isActive
+                         ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100'
+                         : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'
+                      }`}
+                    >
+                      <Icon name={module.icon || 'Box'} size={18} />
+                      {module.name} Admin
+                    </Link>
+                  );
+                })}
               </div>
             </section>
           )}

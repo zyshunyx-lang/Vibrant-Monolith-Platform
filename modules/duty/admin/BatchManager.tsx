@@ -1,136 +1,151 @@
-
 import React, { useState } from 'react';
 import { loadDb, saveDb } from '../../../platform/core/db';
 import { ColorCard } from '../../../platform/ui/layout/ColorCard';
 import { Button } from '../../../platform/ui/basic/Button';
 import { Icon } from '../../../platform/ui/basic/Icon';
-import { Grid } from '../../../platform/ui/layout/Grid';
-import { Badge } from '../../../platform/ui/basic/Badge';
 import { generateMonthlySchedule } from '../logic/scheduler';
-import { DutyModuleSchema, Schedule } from '../types';
+import { CalendarGrid } from '../../../platform/ui/complex/CalendarGrid';
+import { Schedule } from '../types';
 
 export const BatchManager: React.FC = () => {
   const [db, setDb] = useState(loadDb());
-  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
-  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
-  const [previewData, setPreviewData] = useState<Schedule[]>([]);
+  const [viewDate, setViewDate] = useState(new Date());
+  
+  // Local state for draft/preview before persistence
+  const [previewSchedules, setPreviewSchedules] = useState<Schedule[]>([]);
 
-  const dutyData: DutyModuleSchema = db.modules.duty || { rosterConfigs: {}, schedules: [] };
-
+  // Generate draft based on roster rules
   const handleGenerate = () => {
+    const year = viewDate.getFullYear();
+    const month = viewDate.getMonth();
+    
     const newSchedules = generateMonthlySchedule(
-      selectedYear,
-      selectedMonth,
-      db.sys_config.users,
-      dutyData.rosterConfigs
+      year, 
+      month, 
+      db.sys_config?.users || [], 
+      db.modules?.duty?.rosterConfigs || {}
     );
-    setPreviewData(newSchedules);
+
+    setPreviewSchedules(newSchedules);
   };
 
+  // Persist draft to database and notify system
   const handlePublish = () => {
-    if (previewData.length === 0) return;
+    if (previewSchedules.length === 0) return;
 
-    const publishedSchedules = previewData.map(s => ({ ...s, status: 'published' as const }));
+    if (!window.confirm(`Confirm to publish ${previewSchedules.length} shifts? This will notify all users.`)) return;
+
+    const published = previewSchedules.map(s => ({ ...s, status: 'published' } as Schedule));
+
+    const currentSchedules = db.modules?.duty?.schedules || [];
+    const monthPrefix = `${viewDate.getFullYear()}-${String(viewDate.getMonth() + 1).padStart(2, '0')}`;
+    const otherSchedules = currentSchedules.filter(s => !s.date.startsWith(monthPrefix));
     
-    // Remove existing schedules for this month to avoid duplicates
-    const filteredSchedules = dutyData.schedules.filter(s => {
-      const d = new Date(s.date);
-      return !(d.getFullYear() === selectedYear && d.getMonth() === selectedMonth);
-    });
+    const finalSchedules = [...otherSchedules, ...published];
 
-    const finalSchedules = [...filteredSchedules, ...publishedSchedules];
-
-    // Create Notification
-    const newNotification = {
+    const newNotif = {
       id: Date.now().toString(),
-      targetUserId: 'all', // logic to broadcast
-      type: 'success' as const,
-      content: `The duty schedule for ${selectedYear}-${selectedMonth + 1} has been published!`,
+      targetUserId: 'ALL',
+      type: 'info' as const,
+      content: `📅 ${viewDate.getMonth() + 1}月排班表已公示，请及时查看。`,
       isRead: false,
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      linkUrl: '/duty'
     };
 
     const newDb = {
       ...db,
-      notifications: [...db.notifications, newNotification],
+      notifications: [newNotif, ...db.notifications],
       modules: {
         ...db.modules,
-        duty: { ...dutyData, schedules: finalSchedules }
+        duty: {
+          ...db.modules?.duty,
+          schedules: finalSchedules
+        }
       }
     };
 
     saveDb(newDb);
     setDb(newDb);
-    setPreviewData([]);
+    setPreviewSchedules([]);
     alert('Schedule published successfully!');
   };
 
-  const getUserName = (id: string) => db.sys_config.users.find(u => u.id === id)?.realName || 'Unknown';
+  const getUserName = (id: string) => db.sys_config?.users?.find(u => u.id === id)?.realName || 'Unknown';
+
+  const toLocalDateString = (date: Date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const renderCell = (date: Date) => {
+    const dateStr = toLocalDateString(date);
+    
+    const inPreview = previewSchedules?.find(s => s.date === dateStr);
+    const inDb = db.modules?.duty?.schedules?.find(s => s.date === dateStr);
+    
+    const schedule = inPreview || inDb;
+
+    if (!schedule) return null;
+
+    const isPreviewItem = !!inPreview;
+
+    return (
+      <div className={`mt-1 p-1 rounded border text-[10px] font-bold flex flex-col gap-1
+        ${isPreviewItem 
+          ? 'bg-orange-50 border-orange-200 text-orange-800'
+          : 'bg-emerald-50 border-emerald-200 text-emerald-800'
+        }`}>
+        <div className="flex justify-between items-center">
+           <span className="truncate">{getUserName(schedule.leaderId)}</span>
+           {isPreviewItem && <Icon name="Zap" size={8} />}
+        </div>
+        <div className="opacity-70 truncate">{getUserName(schedule.memberId)}</div>
+      </div>
+    );
+  };
 
   return (
-    <div className="space-y-8">
-      <ColorCard title="Schedule Engine" variant="white">
-        <div className="flex flex-col md:flex-row items-end gap-6">
-          <div className="space-y-2">
-            <label className="text-sm font-bold text-slate-500">Target Month</label>
-            <div className="flex gap-2">
-              <select 
-                value={selectedMonth}
-                onChange={e => setSelectedMonth(parseInt(e.target.value))}
-                className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 font-bold"
-              >
-                {Array.from({ length: 12 }).map((_, i) => (
-                  <option key={i} value={i}>{new Date(0, i).toLocaleString('default', { month: 'long' })}</option>
-                ))}
-              </select>
-              <input 
-                type="number" 
-                value={selectedYear}
-                onChange={e => setSelectedYear(parseInt(e.target.value))}
-                className="w-24 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 font-bold text-center"
-              />
-            </div>
-          </div>
-          <div className="flex gap-3">
-            <Button onClick={handleGenerate} variant="secondary">
-              <Icon name="Cpu" size={18} className="mr-2" />
-              Auto Generate
-            </Button>
-            {previewData.length > 0 && (
-              <Button onClick={handlePublish}>
-                <Icon name="Send" size={18} className="mr-2" />
-                Publish Schedule
-              </Button>
-            )}
-          </div>
-        </div>
-      </ColorCard>
-
-      {previewData.length > 0 && (
-        <ColorCard title="Draft Preview" variant="blue" className="animate-in slide-in-from-top-4 duration-300">
-          <Grid cols={3}>
-            {previewData.map(s => (
-              <div key={s.id} className="p-4 bg-white rounded-2xl border border-blue-100 flex flex-col gap-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-black text-slate-400">{s.date}</span>
-                  <Badge variant="warning">DRAFT</Badge>
-                </div>
-                <div className="flex items-center gap-4">
-                  <div className="flex-1">
-                    <p className="text-[10px] font-bold text-blue-500 uppercase">Leader</p>
-                    <p className="font-bold text-slate-700">{getUserName(s.leaderId)}</p>
-                  </div>
-                  <div className="w-px h-8 bg-slate-100" />
-                  <div className="flex-1">
-                    <p className="text-[10px] font-bold text-indigo-500 uppercase">Member</p>
-                    <p className="font-bold text-slate-700">{getUserName(s.memberId)}</p>
-                  </div>
-                </div>
+    <ColorCard title="Batch Scheduler" variant="blue">
+      <div className="flex flex-col gap-6">
+        <div className="flex justify-between items-end bg-white/50 p-4 rounded-xl border border-blue-100">
+           <div>
+              <p className="text-sm text-blue-800 font-bold mb-2">Operation Mode</p>
+              <div className="flex gap-2">
+                <Button onClick={handleGenerate} variant="primary">
+                  <Icon name="Wand2" size={16} className="mr-2"/> 
+                  Auto-Generate Draft
+                </Button>
+                {previewSchedules.length > 0 && (
+                  <Button onClick={handlePublish} variant="secondary" className="bg-emerald-500 hover:bg-emerald-600 text-white border-none">
+                    <Icon name="Send" size={16} className="mr-2"/> 
+                    Publish ({previewSchedules.length})
+                  </Button>
+                )}
               </div>
-            ))}
-          </Grid>
-        </ColorCard>
-      )}
-    </div>
+           </div>
+           <div className="text-right">
+             <div className="text-xs font-bold text-blue-400 uppercase tracking-widest mb-1">Status</div>
+             {previewSchedules.length > 0 
+               ? <span className="text-orange-600 font-black animate-pulse">PREVIEW MODE</span>
+               : <span className="text-slate-400 font-bold">VIEWING DATABASE</span>
+             }
+           </div>
+        </div>
+
+        <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
+          <CalendarGrid 
+            currentDate={viewDate}
+            onMonthChange={(d) => {
+              setViewDate(d);
+              setPreviewSchedules([]);
+            }}
+            renderCell={renderCell}
+          />
+        </div>
+      </div>
+    </ColorCard>
   );
 };

@@ -1,7 +1,7 @@
 
 import { IconName } from '../../platform/ui/basic/Icon';
 
-export const DutyModuleDefinition = {
+export const DutyModule = {
   id: 'duty',
   name: 'Duty Management',
   icon: 'CalendarClock' as IconName,
