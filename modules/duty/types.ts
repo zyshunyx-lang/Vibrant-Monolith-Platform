@@ -1,5 +1,5 @@
 
-export type RuleType = 'ordinary' | 'holiday' | 'weekend' | 'workday';
+export type RuleType = 'ordinary' | 'holiday' | 'weekend' | 'workday' | 'deholiday';
 
 export type RotationStrategy = 'unified_loop' | 'split_loop';
 

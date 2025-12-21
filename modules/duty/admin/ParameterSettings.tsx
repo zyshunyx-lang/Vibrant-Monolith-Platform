@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { loadDb, saveDb } from '../../../platform/core/db';
 import { ColorCard } from '../../../platform/ui/layout/ColorCard';
@@ -20,23 +19,17 @@ export const ParameterSettings: React.FC = () => {
   const dutyData = (db.modules.duty || {}) as DutyModuleSchema;
 
   const updateDutyData = (updates: Partial<DutyModuleSchema>) => {
-    // 1. Get truly fresh DB from storage to avoid overwrite races
     const freshDb = loadDb();
     const currentDuty = (freshDb.modules.duty || {}) as DutyModuleSchema;
-    
-    // 2. Perform deep merge of the duty module data
     const updatedDuty = { ...currentDuty, ...updates };
-    
-    // 3. Save back to root DB
     const newDb = {
       ...freshDb,
       modules: { ...freshDb.modules, duty: updatedDuty }
     };
     saveDb(newDb);
-    setDb(newDb); // Trigger React re-render
+    setDb(newDb);
   };
 
-  // --- Profile Logic ---
   const handleSaveProfile = () => {
     const profile: DutyConfigProfile = {
       id: Date.now().toString(),
@@ -50,14 +43,14 @@ export const ParameterSettings: React.FC = () => {
     let nextProfiles = [...dutyData.savedProfiles];
     if (existingIdx >= 0) nextProfiles[existingIdx] = { ...profile, id: nextProfiles[existingIdx].id };
     else nextProfiles.push(profile);
-    
     updateDutyData({ savedProfiles: nextProfiles });
     alert(`Configuration saved to scheme: ${profile.name}`);
   };
 
   const handleLoadProfile = (id: string) => {
     const profile = dutyData.savedProfiles.find(p => p.id === id);
-    if (!profile || !confirm(`Load scheme [${profile.name}]?`)) return;
+    if (!profile) return;
+    
     updateDutyData({
       categories: profile.categories,
       rules: profile.rules,
@@ -77,7 +70,6 @@ export const ParameterSettings: React.FC = () => {
     updateDutyData({ currentProfileName: name });
   };
 
-  // --- Categories ---
   const handleAddCategory = () => {
     if (!newCategoryName.trim()) return;
     const id = `cat_${Date.now()}`;
@@ -87,6 +79,14 @@ export const ParameterSettings: React.FC = () => {
     });
     setIsAddCatModalOpen(false);
   };
+
+  const ruleTypeLegend: { type: RuleType; label: string; desc: string }[] = [
+    { type: 'ordinary', label: 'Ordinary (普通)', desc: 'Every day in the calendar.' },
+    { type: 'workday', label: 'Workday (工作日)', desc: 'Mon-Fri (Includes overrides, excludes holidays).' },
+    { type: 'weekend', label: 'Weekend (周末)', desc: 'Sat & Sun only.' },
+    { type: 'holiday', label: 'Holiday (节假日)', desc: 'Statutory holidays only.' },
+    { type: 'deholiday', label: 'Deholiday (非节假)', desc: 'Workday + Weekend (excludes statutory holidays).' },
+  ];
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500 pb-12">
@@ -105,30 +105,85 @@ export const ParameterSettings: React.FC = () => {
             {dutyData.categories.map(cat => {
               const rule = dutyData.rules.find(r => r.categoryId === cat.id);
               const isSplit = rule?.strategy === 'split_loop';
+              
               return (
                 <div key={cat.id} className="p-5 rounded-3xl bg-slate-50 border border-slate-100 space-y-4">
                   <div className="flex justify-between items-center">
                     <span className="font-black text-slate-800 uppercase">{cat.name}</span>
                     <Button variant="ghost" size="sm" className="text-rose-500" onClick={() => updateDutyData({ categories: dutyData.categories.filter(c => c.id !== cat.id), rules: dutyData.rules.filter(r => r.categoryId !== cat.id) })}><Icon name="Trash2" size={14}/></Button>
                   </div>
+
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase">Rotation Logic</label>
+                    <label className="text-[10px] font-black text-slate-400 uppercase">Rotation Strategy</label>
                     <div className="flex bg-white p-1 rounded-xl border border-slate-200">
-                      <button onClick={() => updateDutyData({ rules: dutyData.rules.map(r => r.categoryId === cat.id ? {...r, strategy: 'unified_loop'} : r) })} className={`flex-1 py-1.5 text-[10px] font-black uppercase rounded-lg transition-all ${!isSplit ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400'}`}>Unified</button>
-                      <button onClick={() => updateDutyData({ rules: dutyData.rules.map(r => r.categoryId === cat.id ? {...r, strategy: 'split_loop'} : r) })} className={`flex-1 py-1.5 text-[10px] font-black uppercase rounded-lg transition-all ${isSplit ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400'}`}>Split</button>
+                      <button 
+                        onClick={() => updateDutyData({ 
+                          rules: dutyData.rules.map(r => r.categoryId === cat.id ? {...r, strategy: 'unified_loop', ruleTypes: [r.ruleTypes[0] || 'ordinary']} : r) 
+                        })} 
+                        className={`flex-1 py-1.5 text-[10px] font-black uppercase rounded-lg transition-all ${!isSplit ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400'}`}
+                      >
+                        Unified (Radio)
+                      </button>
+                      <button 
+                        onClick={() => updateDutyData({ 
+                          rules: dutyData.rules.map(r => r.categoryId === cat.id ? {...r, strategy: 'split_loop'} : r) 
+                        })} 
+                        className={`flex-1 py-1.5 text-[10px] font-black uppercase rounded-lg transition-all ${isSplit ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400'}`}
+                      >
+                        Split (Max 2)
+                      </button>
                     </div>
                   </div>
-                  <div className="flex flex-wrap gap-2">
-                    {(['ordinary', 'workday', 'weekend', 'holiday'] as RuleType[]).map(type => (
-                      <button key={type} onClick={() => {
-                        const nextRules = dutyData.rules.map(r => {
-                          if (r.categoryId !== cat.id) return r;
-                          const has = r.ruleTypes.includes(type);
-                          return { ...r, ruleTypes: has ? r.ruleTypes.filter(t => t !== type) : [...r.ruleTypes, type] };
-                        });
-                        updateDutyData({ rules: nextRules });
-                      }} className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase border ${rule?.ruleTypes.includes(type) ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-400 border-slate-200'}`}>{type}</button>
-                    ))}
+
+                  <div className="space-y-3">
+                    <div className="flex flex-wrap gap-2">
+                      {ruleTypeLegend.map(item => {
+                        const isActive = rule?.ruleTypes.includes(item.type);
+                        return (
+                          <button 
+                            key={item.type} 
+                            onClick={() => {
+                              const nextRules = dutyData.rules.map(r => {
+                                if (r.categoryId !== cat.id) return r;
+                                
+                                // Strategy Constraint Logic
+                                if (r.strategy === 'unified_loop') {
+                                  // Radio behavior: Replace
+                                  return { ...r, ruleTypes: [item.type] };
+                                } else {
+                                  // Checkbox behavior: Max 2
+                                  const has = r.ruleTypes.includes(item.type);
+                                  if (!has && r.ruleTypes.length >= 2) {
+                                    alert("Dual-track (Split Loop) supports a maximum of 2 rule types (usually Workday & Holiday).");
+                                    return r;
+                                  }
+                                  return { ...r, ruleTypes: has ? r.ruleTypes.filter(t => t !== item.type) : [...r.ruleTypes, item.type] };
+                                }
+                              });
+                              updateDutyData({ rules: nextRules });
+                            }} 
+                            className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase border transition-all ${
+                              isActive ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-400 border-slate-200 hover:border-slate-300'
+                            }`}
+                          >
+                            {item.type}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    
+                    {/* Legend Description */}
+                    <div className="p-3 bg-white/50 rounded-xl border border-slate-200/50">
+                        <p className="text-[10px] font-black text-slate-400 uppercase mb-2 tracking-widest">Active Scope Legend</p>
+                        <ul className="space-y-1">
+                            {ruleTypeLegend.map(item => (
+                                <li key={item.type} className="flex items-start gap-2">
+                                    <span className="text-[10px] font-bold text-slate-700 w-24 shrink-0">{item.label}:</span>
+                                    <span className="text-[10px] text-slate-500 italic leading-tight">{item.desc}</span>
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
                   </div>
                 </div>
               );

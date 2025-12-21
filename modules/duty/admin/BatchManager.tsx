@@ -159,14 +159,19 @@ export const BatchManager: React.FC = () => {
           <CalendarGrid 
             currentDate={viewDate}
             onMonthChange={(d) => { setViewDate(d); setPreviewSchedules([]); }}
-            renderCell={(date) => {
-              const dateStr = date.toISOString().split('T')[0];
+            renderCell={(date, dateStr) => {
               const schedule = previewSchedules.find(s => s.date === dateStr) || dutyData.schedules.find(s => s.date === dateStr);
-              if (!schedule) return null;
+              const isHoliday = dutyData.calendarOverrides?.find(o => o.date === dateStr && o.type === 'holiday');
               const isPreview = previewSchedules.some(s => s.date === dateStr);
+
               return (
-                <div className="mt-1 flex flex-col gap-1">
-                  {schedule.slots.map(slot => (
+                <div className="relative mt-1 flex flex-col gap-1 min-h-[40px]">
+                  {isHoliday && (
+                    <span className="absolute -top-6 left-0 text-[10px] font-black text-rose-500 bg-rose-50 px-1 rounded border border-rose-100 shadow-sm z-10">
+                      假
+                    </span>
+                  )}
+                  {schedule?.slots.map(slot => (
                     <div key={slot.slotId} className={`px-2 py-0.5 rounded text-[9px] font-black border truncate ${isPreview ? 'bg-orange-50 border-orange-200 text-orange-700 animate-pulse' : 'bg-indigo-50 border-indigo-100 text-indigo-700'}`}>
                       {getUserName(slot.userId)}
                     </div>

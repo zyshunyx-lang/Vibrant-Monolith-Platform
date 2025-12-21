@@ -6,7 +6,7 @@ import { DutyModuleSchema, Schedule, RuleType, RotationState, RotationStrategy }
  * Helper to determine date type
  */
 const getDateType = (date: Date, overrides: DutyModuleSchema['calendarOverrides']): RuleType => {
-  const dateStr = date.toISOString().split('T')[0];
+  const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
   const override = overrides.find(o => o.date === dateStr);
   
   if (override) {
@@ -81,9 +81,8 @@ export const generateMonthlySchedule = (
   // 2. Iterate through each day of the target month
   for (let d = 1; d <= daysInMonth; d++) {
     const date = new Date(year, month, d);
-    const dateStr = date.toISOString().split('T')[0];
+    const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
     const todayType = getDateType(date, calendarOverrides);
-    const isHolidayOrWeekend = todayType === 'holiday' || todayType === 'weekend';
     
     const dailySlots: { slotId: number; userId: string }[] = [];
     const usedToday = new Set<string>();
@@ -100,7 +99,13 @@ export const generateMonthlySchedule = (
         if (!rule) continue;
 
         // Check if category participates on this type of day
-        const participatesToday = rule.ruleTypes.includes('ordinary') || rule.ruleTypes.includes(todayType);
+        // Logic for deholiday: Workday or Weekend (not statutory holiday)
+        const isDeholidayDay = todayType === 'workday' || todayType === 'weekend';
+        const participatesToday = 
+          rule.ruleTypes.includes('ordinary') || 
+          rule.ruleTypes.includes(todayType) ||
+          (rule.ruleTypes.includes('deholiday') && isDeholidayDay);
+
         if (!participatesToday) continue;
 
         // Determine Strategy and Pointer Track
@@ -108,7 +113,12 @@ export const generateMonthlySchedule = (
         let trackKey = `${catId}_unified`;
         
         if (strategy === 'split_loop') {
-          trackKey = isHolidayOrWeekend ? `${catId}_holiday` : `${catId}_workday`;
+          // If rule includes 'deholiday', weekends follow the workday track.
+          const useSecondaryTrack = rule.ruleTypes.includes('deholiday')
+            ? todayType === 'holiday'
+            : (todayType === 'holiday' || todayType === 'weekend');
+            
+          trackKey = useSecondaryTrack ? `${catId}_holiday` : `${catId}_workday`;
         }
 
         // Find candidate in pool
@@ -131,7 +141,7 @@ export const generateMonthlySchedule = (
         id: `${dateStr}-${Math.random().toString(36).substr(2, 5)}`,
         date: dateStr,
         slots: dailySlots,
-        status: 'draft'
+        status: 'published' 
       });
     }
   }
