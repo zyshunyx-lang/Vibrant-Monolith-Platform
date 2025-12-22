@@ -1,3 +1,4 @@
+
 import { IconName } from '../../platform/ui/basic/Icon';
 
 export const MenuModule = {
@@ -5,6 +6,6 @@ export const MenuModule = {
   name: 'Menu Management',
   icon: 'Utensils' as IconName,
   route: '/menu',
-  // adminRoute: '/admin/menu', // Commented out until Admin View is built
+  adminRoute: '/admin/menu',
   description: 'Weekly meal planning and cafeteria management.'
 };

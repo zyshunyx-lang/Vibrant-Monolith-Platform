@@ -62,7 +62,7 @@ export const ProfileManager: React.FC<ProfileManagerProps> = ({
               <Icon name="Layers" size={24} className="text-white" />
             </div>
             <div>
-              <p className="text-white/60 text-[10px] font-black uppercase tracking-widest leading-none mb-1">Current Scheme</p>
+              <p className="text-white/60 text-[10px] font-black uppercase tracking-widest leading-none mb-1">当前生效方案</p>
               <div className="flex items-center gap-2">
                 <h3 className="text-xl font-black text-white">{currentProfileName}</h3>
                 <button 
@@ -79,7 +79,7 @@ export const ProfileManager: React.FC<ProfileManagerProps> = ({
             <div className="min-w-[180px]">
               <Select 
                 options={[
-                  { label: '-- Load Saved Scheme --', value: '' },
+                  { label: '-- 加载已存方案 --', value: '' },
                   ...profiles.map(p => ({ label: p.name, value: p.id }))
                 ]}
                 onChange={(e) => e.target.value && onLoad(e.target.value)}
@@ -88,14 +88,14 @@ export const ProfileManager: React.FC<ProfileManagerProps> = ({
             </div>
             <div className="flex gap-2">
               <Button variant="ghost" className="text-white hover:bg-white/10 border border-white/20" onClick={onSave}>
-                <Icon name="Save" size={16} className="mr-2"/> Save
+                <Icon name="Save" size={16} className="mr-2"/> 保存
               </Button>
               <Button 
                 variant="ghost" 
                 className="text-white hover:bg-white/10 border border-white/20" 
                 onClick={() => openModal('save_as')}
               >
-                <Icon name="Copy" size={16} className="mr-2"/> Save As
+                <Icon name="Copy" size={16} className="mr-2"/> 另存为
               </Button>
             </div>
           </div>
@@ -105,20 +105,20 @@ export const ProfileManager: React.FC<ProfileManagerProps> = ({
       <Modal 
         isOpen={isModalOpen} 
         onClose={() => setIsModalOpen(false)} 
-        title={actionType === 'rename' ? 'Rename Scheme' : 'Save As New Scheme'}
+        title={actionType === 'rename' ? '重命名方案' : '另存为新方案'}
         footer={
           <div className="flex gap-3">
-            <Button variant="secondary" onClick={() => setIsModalOpen(false)}>Cancel</Button>
-            <Button onClick={handleConfirm}>Confirm</Button>
+            <Button variant="secondary" onClick={() => setIsModalOpen(false)}>取消</Button>
+            <Button onClick={handleConfirm}>确认</Button>
           </div>
         }
       >
         <div className="py-2">
           <Input 
-            label="Scheme Name" 
+            label="方案名称" 
             value={inputValue} 
             onChange={(e) => setInputValue(e.target.value)}
-            placeholder="Enter name..."
+            placeholder="请输入方案名称..."
             autoFocus
           />
         </div>

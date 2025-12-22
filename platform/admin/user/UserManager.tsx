@@ -49,7 +49,7 @@ export const UserManager: React.FC = () => {
 
   // --- Bulk Actions ---
   const handleBulkDelete = () => {
-    if (!confirm(`Delete ${selectedIds.size} users?`)) return;
+    if (!confirm(`确定要删除选中的 ${selectedIds.size} 名用户吗？`)) return;
     const next = users.filter(u => !selectedIds.has(u.id) || u.id === '1');
     persistUsers(next);
     setSelectedIds(new Set());
@@ -64,32 +64,32 @@ export const UserManager: React.FC = () => {
   const handleExcelImport = (data: any[]) => {
     const importedUsers: User[] = data.map((item, index) => ({
       id: `import-${Date.now()}-${index}`,
-      username: String(item.Username || item.username || `user_${index}`),
-      realName: String(item.RealName || item.realName || item.Name || 'Unknown'),
-      role: (String(item.Role || item.role || 'user').toLowerCase()) as UserRole,
-      department: String(item.Department || item.department || 'Imported'),
-      phone: String(item.Phone || item.phone || ''),
+      username: String(item.账号名 || item.Username || item.username || `user_${index}`),
+      realName: String(item.姓名 || item.RealName || item.realName || item.Name || '未知'),
+      role: (String(item.权限 || item.Role || item.role || 'user').toLowerCase()) as UserRole,
+      department: String(item.部门 || item.Department || item.department || '外部导入'),
+      phone: String(item.电话 || item.Phone || item.phone || ''),
       isActive: true,
       password: '123'
     }));
     const existing = new Set(users.map(u => u.username));
     const unique = importedUsers.filter(u => !existing.has(u.username));
     persistUsers([...users, ...unique]);
-    alert(`Imported ${unique.length} users.`);
+    alert(`成功导入 ${unique.length} 名新用户。`);
   };
 
   return (
     <div className="space-y-8 pb-24 animate-in fade-in duration-500">
       <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h2 className="text-3xl font-black text-slate-900 tracking-tight">{t('admin.menu.users')}</h2>
-          <p className="text-slate-500 font-medium">Manage members and run batch imports.</p>
+          <h2 className="text-3xl font-black text-slate-900 tracking-tight">成员权限管理</h2>
+          <p className="text-slate-500 font-medium">配置院内成员账号、角色权限及批量导入操作。</p>
         </div>
         <div className="flex gap-3">
-           <ExcelIO mode="export_template" templateData={[{ Username: 'admin_test', RealName: 'John Doe', Role: 'user', Department: 'IT', Phone: '138...' }]} label="Template" variant="ghost" />
-           <ExcelIO mode="import" onImport={handleExcelImport} label="Import" />
+           <ExcelIO mode="export_template" templateData={[{ 姓名: '张三', 账号名: 'zhangsan', 权限: 'user', 部门: '技术部', 电话: '138...' }]} label="下载模版" variant="ghost" />
+           <ExcelIO mode="import" onImport={handleExcelImport} label="批量导入" />
            <Button onClick={() => { setEditingUser({ role: 'user', isActive: true, password: '123' }); setIsEditModalOpen(true); }}>
-             <Icon name="UserPlus" size={18} className="mr-2"/> Add User
+             <Icon name="UserPlus" size={18} className="mr-2"/> 新增用户
            </Button>
         </div>
       </header>
@@ -102,10 +102,10 @@ export const UserManager: React.FC = () => {
                 <th className="px-6 py-4 w-12">
                   <input type="checkbox" checked={selectedIds.size === users.length && users.length > 0} onChange={toggleAll} className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
                 </th>
-                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('user.realName')}</th>
-                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('user.role')}</th>
-                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">{t('user.status')}</th>
-                <th className="px-6 py-4 text-right text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('common.actions')}</th>
+                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">姓名 / 账号</th>
+                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">所属角色</th>
+                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">状态</th>
+                <th className="px-6 py-4 text-right text-[10px] font-black text-slate-400 uppercase tracking-widest">操作</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
@@ -129,7 +129,7 @@ export const UserManager: React.FC = () => {
                     <Badge variant={user.role === 'super_admin' ? 'danger' : 'info'}>{t(`role.${user.role}`)}</Badge>
                   </td>
                   <td className="px-6 py-4 text-center">
-                    <Badge variant={user.isActive ? 'success' : 'neutral'}>{user.isActive ? t('user.active') : t('user.inactive')}</Badge>
+                    <Badge variant={user.isActive ? 'success' : 'neutral'}>{user.isActive ? '已启用' : '已停用'}</Badge>
                   </td>
                   <td className="px-6 py-4 text-right">
                     <Button variant="ghost" size="sm" onClick={() => { setEditingUser(user); setIsEditModalOpen(true); }}><Icon name="Pencil" size={14}/></Button>
@@ -145,24 +145,33 @@ export const UserManager: React.FC = () => {
         selectedCount={selectedIds.size}
         onClear={() => setSelectedIds(new Set())}
         actions={[
-          { label: 'Activate', icon: 'CheckCircle', onClick: () => handleBulkToggleStatus(true) },
-          { label: 'Deactivate', icon: 'MinusCircle', onClick: () => handleBulkToggleStatus(false) },
-          { label: 'Delete', icon: 'Trash2', onClick: handleBulkDelete, variant: 'danger' },
+          { label: '批量启用', icon: 'CheckCircle', onClick: () => handleBulkToggleStatus(true) },
+          { label: '批量禁用', icon: 'MinusCircle', onClick: () => handleBulkToggleStatus(false) },
+          { label: '批量删除', icon: 'Trash2', onClick: handleBulkDelete, variant: 'danger' },
         ]}
       />
 
-      <Modal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} title="User Profile">
+      <Modal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} title="用户档案编辑">
          <div className="space-y-4">
-            <Input label="Real Name" value={editingUser.realName || ''} onChange={e => setEditingUser({...editingUser, realName: e.target.value})} />
-            <Input label="Username" value={editingUser.username || ''} onChange={e => setEditingUser({...editingUser, username: e.target.value})} disabled={!!editingUser.id} />
-            <Select label="Role" value={editingUser.role} onChange={e => setEditingUser({...editingUser, role: e.target.value as any})} options={[{label:'User', value:'user'}, {label:'Admin', value:'duty_admin'}]} />
+            <Input label="真实姓名" placeholder="请输入姓名..." value={editingUser.realName || ''} onChange={e => setEditingUser({...editingUser, realName: e.target.value})} />
+            <Input label="账号登录名" placeholder="用于系统登录..." value={editingUser.username || ''} onChange={e => setEditingUser({...editingUser, username: e.target.value})} disabled={!!editingUser.id} />
+            <Select 
+              label="所属权限角色" 
+              value={editingUser.role} 
+              onChange={e => setEditingUser({...editingUser, role: e.target.value as any})} 
+              options={[
+                {label:'普通员工 (User)', value:'user'}, 
+                {label:'值班管理员 (Duty Admin)', value:'duty_admin'},
+                {label:'食堂管理员 (Menu Admin)', value:'menu_admin'}
+              ]} 
+            />
             <div className="flex gap-2 justify-end pt-4">
-              <Button variant="secondary" onClick={() => setIsEditModalOpen(false)}>{t('common.cancel')}</Button>
+              <Button variant="secondary" onClick={() => setIsEditModalOpen(false)}>取消</Button>
               <Button onClick={() => {
                 const next = editingUser.id ? users.map(u => u.id === editingUser.id ? editingUser as User : u) : [...users, { ...editingUser, id: Date.now().toString() } as User];
                 persistUsers(next);
                 setIsEditModalOpen(false);
-              }}>{t('common.save')}</Button>
+              }}>保存档案</Button>
             </div>
          </div>
       </Modal>

@@ -14,12 +14,12 @@ export const LogViewer: React.FC = () => {
     <div className="space-y-8">
       <header className="flex items-center justify-between">
         <div>
-          <h2 className="text-3xl font-black text-slate-900 tracking-tight">System Logs</h2>
-          <p className="text-slate-500 font-medium mt-1">Audit trail of all administrative and system actions.</p>
+          <h2 className="text-3xl font-black text-slate-900 tracking-tight">系统审计日志</h2>
+          <p className="text-slate-500 font-medium mt-1">记录系统内的所有关键操作、权限变更及安全审计轨迹。</p>
         </div>
         <Button variant="secondary" onClick={() => window.location.reload()}>
           <Icon name="RefreshCcw" size={16} className="mr-2" />
-          Refresh
+          刷新列表
         </Button>
       </header>
 
@@ -28,10 +28,10 @@ export const LogViewer: React.FC = () => {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-slate-50/50 border-b border-slate-100">
-                <th className="px-6 py-4 text-[11px] font-black text-slate-400 uppercase tracking-widest">Timestamp</th>
-                <th className="px-6 py-4 text-[11px] font-black text-slate-400 uppercase tracking-widest">Action</th>
-                <th className="px-6 py-4 text-[11px] font-black text-slate-400 uppercase tracking-widest">User ID</th>
-                <th className="px-6 py-4 text-[11px] font-black text-slate-400 uppercase tracking-widest">Details</th>
+                <th className="px-6 py-4 text-[11px] font-black text-slate-400 uppercase tracking-widest">操作时间</th>
+                <th className="px-6 py-4 text-[11px] font-black text-slate-400 uppercase tracking-widest">动作类型</th>
+                <th className="px-6 py-4 text-[11px] font-black text-slate-400 uppercase tracking-widest">操作人 ID</th>
+                <th className="px-6 py-4 text-[11px] font-black text-slate-400 uppercase tracking-widest">详情描述</th>
               </tr>
             </thead>
             <tbody>
@@ -57,7 +57,7 @@ export const LogViewer: React.FC = () => {
                   <td colSpan={4} className="px-6 py-20 text-center text-slate-400 italic">
                     <div className="flex flex-col items-center">
                       <Icon name="Inbox" size={32} className="mb-2 opacity-20" />
-                      No logs recorded yet.
+                      当前尚无任何审计记录。
                     </div>
                   </td>
                 </tr>

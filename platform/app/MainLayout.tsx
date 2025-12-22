@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { Icon } from '../ui/basic/Icon';
@@ -17,8 +18,6 @@ export const MainLayout: React.FC = () => {
     role: 'user' as const
   };
 
-  const isAdmin = user.role !== 'user';
-
   const toggleLanguage = () => {
     setLanguage(language === 'en' ? 'zh' : 'en');
   };
@@ -29,58 +28,26 @@ export const MainLayout: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
-      <nav className="bg-white/90 backdrop-blur-lg border-b border-slate-200 sticky top-0 z-50">
+    <div className="min-h-screen bg-[#fcfdff] flex flex-col">
+      <nav className="bg-white/90 backdrop-blur-lg border-b border-slate-100 sticky top-0 z-50">
         <div className="max-w-[1600px] mx-auto px-4 md:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-6 md:gap-12">
+          <div className="flex items-center gap-6">
             <Link to="/" className="flex items-center gap-3 group">
-              <div className="w-10 h-10 bg-indigo-600 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-indigo-100 transition-all group-hover:rotate-12">
+              <div className="w-10 h-10 bg-slate-900 rounded-2xl flex items-center justify-center text-white shadow-lg transition-all group-hover:rotate-12">
                 <Icon name="Box" size={22} />
               </div>
-              <h1 className="hidden md:block text-xl font-black text-slate-800 tracking-tight">
-                {t('app.title')}<span className="text-indigo-600 uppercase tracking-widest text-[10px] ml-1 px-1.5 py-0.5 bg-indigo-50 rounded-md align-middle">Core</span>
+              <h1 className="text-xl font-black text-slate-800 tracking-tight">
+                VIBRANT<span className="text-indigo-600">OS</span>
               </h1>
             </Link>
-
-            <div className="flex items-center gap-1">
-              <Link
-                to="/apps"
-                className={`
-                  flex items-center gap-2 px-4 py-2 rounded-2xl text-sm font-bold transition-all
-                  ${location.pathname.startsWith('/apps') 
-                    ? 'bg-indigo-600 text-white shadow-md shadow-indigo-100' 
-                    : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'}
-                `}
-              >
-                <Icon name="Home" size={16} />
-                {t('nav.home')}
-              </Link>
-
-              {/* ONLY show Admin link if user is not a regular 'user' */}
-              {isAdmin && (
-                <Link
-                  to="/admin"
-                  className={`
-                    flex items-center gap-2 px-4 py-2 rounded-2xl text-sm font-bold transition-all
-                    ${location.pathname.startsWith('/admin') 
-                      ? 'bg-indigo-600 text-white shadow-md shadow-indigo-100' 
-                      : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'}
-                  `}
-                >
-                  <Icon name="ShieldCheck" size={16} />
-                  {t('nav.admin')}
-                </Link>
-              )}
-            </div>
           </div>
 
           <div className="flex items-center gap-4">
             <button 
               onClick={toggleLanguage}
-              className="w-10 h-10 rounded-xl hover:bg-slate-100 text-slate-500 transition-colors flex items-center justify-center relative overflow-hidden group"
+              className="w-10 h-10 rounded-xl hover:bg-slate-50 text-slate-400 transition-colors flex items-center justify-center relative group"
             >
-              <Icon name="Globe" size={18} className="transition-transform group-hover:scale-110" />
-              <span className="absolute bottom-0 right-0 text-[8px] font-black bg-slate-200 px-1 rounded-tl-md">{language.toUpperCase()}</span>
+              <Icon name="Globe" size={18} />
             </button>
 
             <div className="relative">
@@ -96,7 +63,7 @@ export const MainLayout: React.FC = () => {
                 </div>
                 <div className="hidden md:flex flex-col items-start leading-none">
                   <span className="text-xs font-black text-slate-800">{user.realName}</span>
-                  <span className="text-[9px] font-bold text-slate-400 uppercase">{t(`role.${user.role}`)}</span>
+                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">{t(`role.${user.role}`)}</span>
                 </div>
                 <Icon name={isUserMenuOpen ? 'ChevronUp' : 'ChevronDown'} size={14} className="text-slate-400" />
               </button>
@@ -104,11 +71,10 @@ export const MainLayout: React.FC = () => {
               {isUserMenuOpen && (
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => setIsUserMenuOpen(false)} />
-                  <div className="absolute right-0 mt-3 w-56 bg-white rounded-2xl shadow-2xl border border-slate-100 py-2 z-50 animate-in fade-in slide-in-from-top-2">
+                  <div className="absolute right-0 mt-3 w-56 bg-white rounded-3xl shadow-2xl border border-slate-100 py-2 z-50 animate-in fade-in slide-in-from-top-2">
                     <div className="px-4 py-3 border-b border-slate-50 mb-1">
-                      <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-1">Identity</p>
+                      <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-1">Signed in as</p>
                       <p className="text-sm font-bold text-slate-800 truncate">@{user.username}</p>
-                      <Badge variant="info" className="mt-1 text-[9px]">{t(`role.${user.role}`)}</Badge>
                     </div>
                     
                     <button 

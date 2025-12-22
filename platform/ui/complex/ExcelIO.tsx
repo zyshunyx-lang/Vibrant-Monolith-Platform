@@ -17,8 +17,8 @@ export const ExcelIO: React.FC<ExcelIOProps> = ({
   mode = 'import',
   onImport,
   templateData = [],
-  templateFileName = 'template.xlsx',
-  label = mode === 'import' ? 'Import Excel' : 'Download Template',
+  templateFileName = '数据模版.xlsx',
+  label = mode === 'import' ? '导入 Excel' : '下载模版',
   variant = 'secondary'
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -37,7 +37,7 @@ export const ExcelIO: React.FC<ExcelIOProps> = ({
         const json = XLSX.utils.sheet_to_json(worksheet);
         onImport(json);
       } catch (err) {
-        alert("Failed to parse Excel file. Please ensure it is a valid .xlsx file.");
+        alert("无法解析 Excel 文件。请确保文件格式为有效的 .xlsx 或 .xls 格式。");
       }
       if (fileInputRef.current) fileInputRef.current.value = '';
     };

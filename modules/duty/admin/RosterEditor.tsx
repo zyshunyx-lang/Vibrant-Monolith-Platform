@@ -17,8 +17,19 @@ export const RosterEditor: React.FC = () => {
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   
-  const dutyData: DutyModuleSchema = db.modules.duty || {};
-  const users = db.sys_config.users;
+  const dutyData: DutyModuleSchema = db.modules.duty || {
+    categories: [],
+    rules: [],
+    calendarOverrides: [],
+    slotConfigs: [],
+    rosterConfigs: {},
+    schedules: [],
+    rotationState: {},
+    changeLogs: [],
+    savedProfiles: [],
+    currentProfileName: '默认方案'
+  };
+  const users = db.sys_config.users || [];
 
   const updateConfig = (userIds: string[], updates: Partial<DutyConfig>) => {
     const newConfigs = { ...dutyData.rosterConfigs };
@@ -81,11 +92,16 @@ export const RosterEditor: React.FC = () => {
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <Select options={[{label:'Unassigned', value:''}, ...dutyData.categories.map(c => ({label:c.name, value:c.id}))]} value={config.categoryId} onChange={e => updateConfig([user.id], { categoryId: e.target.value })} />
+                      <Select options={[{label:'Unassigned', value:''}, ...(dutyData.categories || []).map(c => ({label:c.name, value:c.id}))]} value={config.categoryId} onChange={e => updateConfig([user.id], { categoryId: e.target.value })} />
                     </td>
                   </tr>
                 );
               })}
+              {userList.length === 0 && (
+                <tr>
+                  <td colSpan={3} className="px-6 py-8 text-center text-slate-300 italic text-sm">No users in this category.</td>
+                </tr>
+              )}
             </tbody>
           </table>
         )}
@@ -95,7 +111,7 @@ export const RosterEditor: React.FC = () => {
 
   const groupedUsers = (() => {
     const groups: Record<string, typeof users> = { '': [] };
-    dutyData.categories.forEach(c => groups[c.id] = []);
+    (dutyData.categories || []).forEach(c => groups[c.id] = []);
     users.forEach(u => {
       const catId = dutyData.rosterConfigs[u.id]?.categoryId || '';
       if (groups[catId]) groups[catId].push(u); else groups[''].push(u);
@@ -109,14 +125,14 @@ export const RosterEditor: React.FC = () => {
         <h3 className="text-xl font-black text-slate-800">{t('duty.roster.title')}</h3>
       </div>
       {renderGroup(groupedUsers[''], '', 'Unassigned')}
-      {dutyData.categories.map(cat => renderGroup(groupedUsers[cat.id], cat.id, cat.name))}
+      {(dutyData.categories || []).map(cat => renderGroup(groupedUsers[cat.id], cat.id, cat.name))}
 
       <BulkActionToolbar 
         selectedCount={selectedIds.size}
         onClear={() => setSelectedIds(new Set())}
         actions={[
           { label: 'Clear Category', icon: 'UserMinus', onClick: () => handleBulkAssignCategory('') },
-          ...dutyData.categories.map(cat => ({
+          ...(dutyData.categories || []).map(cat => ({
             label: `Assign to ${cat.name}`,
             icon: 'ArrowRightCircle' as const,
             onClick: () => handleBulkAssignCategory(cat.id)

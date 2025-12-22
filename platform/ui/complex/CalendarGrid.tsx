@@ -13,28 +13,20 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({ currentDate, onMonth
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
 
-  const firstDayOfMonth = new Date(year, month, 1).getDay(); // 0 is Sunday
+  const firstDayOfMonth = new Date(year, month, 1).getDay(); 
   const daysInMonth = new Date(year, month + 1, 0).getDate();
 
   const prevMonth = () => onMonthChange(new Date(year, month - 1, 1));
   const nextMonth = () => onMonthChange(new Date(year, month + 1, 1));
 
-  const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  // Localized Day Names
+  const dayNames = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
 
-  // Calculate days for the grid
   const days: (Date | null)[] = [];
-  
-  // Padding for start
-  for (let i = 0; i < firstDayOfMonth; i++) {
-    days.push(null);
-  }
-  
-  // Real days
-  for (let i = 1; i <= daysInMonth; i++) {
-    days.push(new Date(year, month, i));
-  }
+  for (let i = 0; i < firstDayOfMonth; i++) days.push(null);
+  for (let i = 1; i <= daysInMonth; i++) days.push(new Date(year, month, i));
 
-  const monthYearStr = currentDate.toLocaleString('default', { month: 'long', year: 'numeric' });
+  const monthYearStr = `${year}年 ${month + 1}月`;
 
   return (
     <div className="flex flex-col gap-6">
@@ -45,7 +37,7 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({ currentDate, onMonth
             <Icon name="ChevronLeft" size={20} />
           </Button>
           <Button variant="secondary" size="sm" onClick={() => onMonthChange(new Date())}>
-            Today
+            今天
           </Button>
           <Button variant="secondary" size="sm" onClick={nextMonth}>
             <Icon name="ChevronRight" size={20} />
@@ -55,7 +47,7 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({ currentDate, onMonth
 
       <div className="grid grid-cols-7 gap-px bg-slate-200 border border-slate-200 rounded-3xl overflow-hidden shadow-inner">
         {dayNames.map(day => (
-          <div key={day} className="bg-slate-50 py-3 text-center text-xs font-bold text-slate-400 uppercase tracking-widest">
+          <div key={day} className={`bg-slate-50 py-3 text-center text-xs font-black ${day === '周六' || day === '周日' ? 'text-rose-400' : 'text-slate-400'} uppercase tracking-widest`}>
             {day}
           </div>
         ))}
@@ -66,23 +58,18 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({ currentDate, onMonth
           }
 
           return (
-            <div 
-              key={idx} 
-              className={`min-h-[140px] p-2 bg-white flex flex-col transition-colors hover:bg-slate-50/50 ${!date ? 'bg-slate-50/50' : ''}`}
-            >
+            <div key={idx} className={`min-h-[140px] p-2 bg-white flex flex-col transition-colors hover:bg-slate-50/50 ${!date ? 'bg-slate-50/50' : ''}`}>
               {date && (
                 <>
                   <div className="text-right">
                     <span className={`
-                      inline-flex items-center justify-center w-8 h-8 rounded-full text-sm font-bold
-                      ${date.toDateString() === new Date().toDateString() ? 'bg-indigo-600 text-white' : 'text-slate-400'}
+                      inline-flex items-center justify-center w-8 h-8 rounded-full text-sm font-black
+                      ${date.toDateString() === new Date().toDateString() ? 'bg-indigo-600 text-white' : 'text-slate-300'}
                     `}>
                       {date.getDate()}
                     </span>
                   </div>
-                  <div className="mt-1 flex-1">
-                    {renderCell(date, dateStr)}
-                  </div>
+                  <div className="mt-1 flex-1">{renderCell(date, dateStr)}</div>
                 </>
               )}
             </div>

@@ -1,7 +1,8 @@
-
 export type RuleType = 'ordinary' | 'holiday' | 'weekend' | 'workday' | 'deholiday';
 
 export type RotationStrategy = 'unified_loop' | 'split_loop';
+
+export type ChangeType = 'swap' | 'standby';
 
 export interface DutyCategory {
   id: string;
@@ -45,6 +46,18 @@ export interface Schedule {
   status: 'draft' | 'published';
 }
 
+export interface DutyChangeLog {
+  id: string;
+  date: string;
+  slotId: number;
+  type: ChangeType;
+  originalUserId: string;
+  newUserId: string;
+  reason: string;
+  operatorId: string;
+  timestamp: string;
+}
+
 // Key format: "categoryId_trackName" -> lastUserId
 export type RotationState = Record<string, string>;
 
@@ -65,6 +78,7 @@ export interface DutyModuleSchema {
   rosterConfigs: Record<string, DutyConfig>;
   schedules: Schedule[];
   rotationState: RotationState;
+  changeLogs: DutyChangeLog[]; // Audit trail
   // Profile Management
   savedProfiles: DutyConfigProfile[];
   currentProfileName: string;

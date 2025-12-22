@@ -30,7 +30,7 @@ export const BulkActionToolbar: React.FC<BulkActionToolbarProps> = ({
           <div className="w-8 h-8 bg-indigo-500 rounded-full flex items-center justify-center text-xs font-black">
             {selectedCount}
           </div>
-          <span className="text-sm font-bold whitespace-nowrap">Items Selected</span>
+          <span className="text-sm font-bold whitespace-nowrap">已选择项目</span>
           <button 
             onClick={onClear}
             className="text-slate-400 hover:text-white transition-colors"
