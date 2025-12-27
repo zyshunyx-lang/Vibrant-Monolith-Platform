@@ -7,9 +7,11 @@ import { Button } from '../../../platform/ui/basic/Button';
 import { TimelineGrid } from '../components/TimelineGrid';
 import { BookingModal } from '../components/BookingModal';
 import { MeetingModuleSchema, MeetingBooking } from '../types';
+import { useAuth } from '../../../platform/core/AuthContext';
 
 export const MeetingDashboard: React.FC = () => {
   const [db, setDb] = useState(loadDb());
+  const { executeWithAuth } = useAuth();
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
   const [bookingInitData, setBookingInitData] = useState<{ roomId?: string, startHour?: number }>({});
@@ -27,12 +29,22 @@ export const MeetingDashboard: React.FC = () => {
   };
 
   const handleSlotClick = (roomId: string, startHour: number) => {
-    setBookingInitData({ roomId, startHour });
-    setIsBookingModalOpen(true);
+    // 使用 executeWithAuth 保护操作
+    executeWithAuth(() => {
+      setBookingInitData({ roomId, startHour });
+      setIsBookingModalOpen(true);
+    });
   };
 
   const handleBookingClick = (booking: MeetingBooking) => {
     alert(`会议主题: ${booking.subject}\n预约人ID: ${booking.userId}\n状态: ${booking.status}\n备注: ${booking.description || '无'}`);
+  };
+
+  const handleManualBooking = () => {
+    executeWithAuth(() => {
+      setBookingInitData({});
+      setIsBookingModalOpen(true);
+    });
   };
 
   return (
@@ -104,7 +116,7 @@ export const MeetingDashboard: React.FC = () => {
             </div>
          </div>
          
-         <Button onClick={() => { setBookingInitData({}); setIsBookingModalOpen(true); }}>
+         <Button onClick={handleManualBooking}>
            <Icon name="Plus" size={18} className="mr-2" />
            手动发起预约
          </Button>

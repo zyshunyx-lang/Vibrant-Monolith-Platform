@@ -1,10 +1,15 @@
 
-import { DBContent, User } from './types';
+import { DBContent, User, ModuleId } from './types';
 
 const DB_KEY = 'MODULAR_MONOLITH_DB';
 
-const today = new Date().toISOString().split('T')[0];
+// 系统目前定义的所有模块 ID
+const ALL_MODULE_IDS: ModuleId[] = ['duty', 'menu', 'meeting', 'assets', 'system', 'tools', 'meeting-notice'];
 
+/**
+ * 初始数据库结构
+ * 当用户首次访问或数据库损坏时作为 fallback
+ */
 export const INITIAL_DATA: DBContent = {
   sys_config: {
     users: [
@@ -16,19 +21,21 @@ export const INITIAL_DATA: DBContent = {
         department: '管理部',
         phone: '13800000000',
         password: '123',
-        isActive: true
+        isActive: true,
+        allowedModules: [...ALL_MODULE_IDS] // 初始管理员拥有全权限
       }
     ],
     departments: ['管理部', '技术部', '财务部', '人事部'],
     broadcasts: [
       { 
         id: 'b1', 
-        message: '系统将于本周五晚 23:00 进行例行维护，请提前保存工作。', 
-        level: 'warning', 
+        message: '系统权限架构已升级，支持模块级权限管控。', 
+        level: 'info', 
         isActive: true, 
-        createdAt: '2023-12-01' 
+        createdAt: new Date().toISOString().split('T')[0]
       }
-    ]
+    ],
+    enabledModules: [...ALL_MODULE_IDS] // 初始全局开启所有模块
   },
   notifications: [],
   logs: [],
@@ -103,72 +110,94 @@ export const INITIAL_DATA: DBContent = {
           status: 'active',
           needApproval: true,
           imageUrl: 'https://images.unsplash.com/photo-1431540015161-0bf868a2d407?auto=format&fit=crop&q=80&w=400'
-        },
-        {
-          id: 'room_2',
-          name: '洽谈室 A',
-          capacity: 6,
-          location: '办公楼 2F-205',
-          facilities: ['Whiteboard', 'Coffee'],
-          status: 'active',
-          needApproval: false,
-          imageUrl: 'https://images.unsplash.com/photo-1497366754035-f200968a6e72?auto=format&fit=crop&q=80&w=400'
-        },
-        {
-          id: 'room_3',
-          name: '多功能培训教室',
-          capacity: 50,
-          location: '实验楼 1F-101',
-          facilities: ['Projector', 'AudioSystem', 'Mic'],
-          status: 'active',
-          needApproval: true,
-          imageUrl: 'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&q=80&w=400'
         }
       ],
-      bookings: [
-        {
-          id: 'book_1',
-          roomId: 'room_1',
-          userId: '1',
-          subject: '年度战略规划会议',
-          date: today,
-          startTime: '09:00',
-          endTime: '11:30',
-          status: 'confirmed',
-          createdAt: new Date().toISOString()
-        }
-      ],
+      bookings: [],
       externalMeetings: []
     },
-    // Fix: Added meetingNotice to INITIAL_DATA to support the new module
     meetingNotice: {
       notices: []
     }
   }
 };
 
+/**
+ * 递归合并两个对象，用于数据 Schema 升级
+ */
+const deepMerge = (target: any, source: any): any => {
+  if (target === undefined || target === null) return source;
+  if (typeof target !== 'object' || typeof source !== 'object' || Array.isArray(target) || Array.isArray(source)) {
+    return target;
+  }
+
+  const result = { ...target };
+  for (const key in source) {
+    if (Object.prototype.hasOwnProperty.call(source, key)) {
+      if (!(key in target)) {
+        result[key] = source[key];
+      } else if (typeof source[key] === 'object' && source[key] !== null && !Array.isArray(source[key])) {
+        result[key] = deepMerge(target[key], source[key]);
+      }
+    }
+  }
+  return result;
+};
+
+/**
+ * 运行时结构校验
+ */
+const validateDbStructure = (data: any): boolean => {
+  return (
+    data &&
+    typeof data === 'object' &&
+    data.sys_config &&
+    data.modules &&
+    Array.isArray(data.sys_config.users)
+  );
+};
+
 export const loadDb = (): DBContent => {
-  const data = localStorage.getItem(DB_KEY);
-  if (!data) {
+  const rawData = localStorage.getItem(DB_KEY);
+  
+  if (!rawData) {
     saveDb(INITIAL_DATA);
     return INITIAL_DATA;
   }
+
   try {
-    const parsed = JSON.parse(data);
+    const parsed = JSON.parse(rawData);
+
+    if (!validateDbStructure(parsed)) {
+      throw new Error("Invalid structure: Critical keys missing.");
+    }
+
+    // --- 数据迁移/修复逻辑 (Migration logic for Permissions) ---
     
-    // Safety checks for existing modules...
-    if (!parsed.modules.meeting) parsed.modules.meeting = { ...INITIAL_DATA.modules.meeting };
-    parsed.modules.meeting.rooms = parsed.modules.meeting.rooms || [];
-    parsed.modules.meeting.bookings = parsed.modules.meeting.bookings || [];
-    parsed.modules.meeting.externalMeetings = parsed.modules.meeting.externalMeetings || [];
+    // 1. 确保全局开启模块列表存在 (如果旧数据没有该字段，默认开启所有)
+    if (parsed.sys_config && !parsed.sys_config.enabledModules) {
+      parsed.sys_config.enabledModules = [...ALL_MODULE_IDS];
+    }
 
-    // Fix: Added safety check for meetingNotice property and nested notices array to prevent runtime crashes on legacy databases.
-    if (!parsed.modules.meetingNotice) parsed.modules.meetingNotice = { ...INITIAL_DATA.modules.meetingNotice };
-    parsed.modules.meetingNotice.notices = parsed.modules.meetingNotice.notices || [];
+    // 2. 确保所有存量用户都有权限字段 (存量用户默认获得全权限以平滑过渡)
+    if (parsed.sys_config.users) {
+      parsed.sys_config.users = parsed.sys_config.users.map((u: any) => ({
+        ...u,
+        allowedModules: u.allowedModules || [...ALL_MODULE_IDS]
+      }));
+    }
 
-    return parsed;
+    // 3. 智能迁移与兼容层：深度合并以补齐新增加的模块字段
+    const migratedData = deepMerge(parsed, INITIAL_DATA) as DBContent;
+    
+    return migratedData;
   } catch (e) {
-    console.error("Database corruption detected.", e);
+    const timestamp = Date.now();
+    const backupKey = `${DB_KEY}_BACKUP_${timestamp}`;
+    console.error(`[DB Service] Corrupted. Backing up and resetting.`, e);
+    
+    localStorage.setItem(backupKey, rawData);
+    saveDb(INITIAL_DATA);
+    
     return INITIAL_DATA;
   }
 };
@@ -179,7 +208,15 @@ export const saveDb = (newDb: DBContent): void => {
 
 export const getCurrentUser = (): User | null => {
   const session = localStorage.getItem('APP_SESSION');
-  if (session) return JSON.parse(session);
-  const db = loadDb();
-  return db.sys_config.users.find(u => u.username === 'admin') || null;
+  if (session) {
+    try {
+      const u = JSON.parse(session);
+      // 这里的 session 数据也需要检查权限字段，防止登录后不刷新导致没权限
+      if (!u.allowedModules) u.allowedModules = [...ALL_MODULE_IDS];
+      return u;
+    } catch {
+      return null;
+    }
+  }
+  return null;
 };

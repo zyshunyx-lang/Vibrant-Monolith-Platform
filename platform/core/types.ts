@@ -1,6 +1,9 @@
 
 export type UserRole = 'super_admin' | 'duty_admin' | 'menu_admin' | 'user';
 
+// 定义系统中所有可用的模块 ID
+export type ModuleId = 'duty' | 'menu' | 'meeting' | 'assets' | 'system' | 'tools' | 'meeting-notice';
+
 export interface User {
   id: string;
   username: string;
@@ -10,6 +13,8 @@ export interface User {
   phone: string;
   password?: string;
   isActive: boolean;
+  /** 用户有权访问的模块列表 */
+  allowedModules?: ModuleId[];
 }
 
 export interface Broadcast {
@@ -24,6 +29,8 @@ export interface SystemConfig {
   users: User[];
   departments: string[];
   broadcasts: Broadcast[];
+  /** 系统全局开启的模块白名单 */
+  enabledModules: ModuleId[];
 }
 
 export interface Notification {
@@ -51,11 +58,9 @@ export interface DBContent {
   modules: {
     duty: any;
     menu: any;
-    // Fix: Added assets property to the modules interface to ensure type compatibility with INITIAL_DATA and Assets module components.
     assets: any;
-    // Fix: Added meeting property to the modules interface to ensure type compatibility with INITIAL_DATA and Meeting module components.
     meeting: any;
-    // Fix: Added meetingNotice property to the modules interface to resolve type errors in NoticeWorkbench, DailyBriefReport, and NoticeStats.
-    meetingNotice: any;
+    // 为了保持一致性，将 meetingNotice 统一为 meeting-notice 风格（或者保留 interface 兼容）
+    meetingNotice: any; 
   };
 }

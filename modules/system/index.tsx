@@ -3,8 +3,9 @@ import React, { useState } from 'react';
 import { Icon } from '../../platform/ui/basic/Icon';
 import { UserManager } from '../../platform/admin/user/UserManager';
 import { LogViewer } from '../../platform/admin/system/LogViewer';
+import { ModuleSettings } from '../../platform/admin/system/ModuleSettings';
 
-type SystemTab = 'users' | 'logs';
+type SystemTab = 'users' | 'modules' | 'logs';
 
 export const SystemModuleEntry: React.FC = () => {
   const [activeTab, setActiveTab] = useState<SystemTab>('users');
@@ -19,7 +20,7 @@ export const SystemModuleEntry: React.FC = () => {
                Platform Core
             </div>
           </h2>
-          <p className="text-slate-500 font-medium mt-1">管理全院用户权限、配置基础参数并监控系统安全性日志。</p>
+          <p className="text-slate-500 font-medium mt-1">管理全院用户权限、配置各业务模块启用状态并监控系统安全性日志。</p>
         </div>
         
         <div className="flex bg-slate-100 p-1.5 rounded-[24px] shadow-inner self-start border border-slate-200/50">
@@ -29,6 +30,13 @@ export const SystemModuleEntry: React.FC = () => {
           >
             <Icon name="Users" size={16} />
             用户权限
+          </button>
+          <button 
+            onClick={() => setActiveTab('modules')}
+            className={`flex items-center gap-2 px-6 py-2.5 rounded-[20px] text-sm font-black transition-all ${activeTab === 'modules' ? 'bg-white text-indigo-600 shadow-md' : 'text-slate-500 hover:text-slate-700'}`}
+          >
+            <Icon name="ToggleRight" size={16} />
+            功能开关
           </button>
           <button 
             onClick={() => setActiveTab('logs')}
@@ -42,6 +50,7 @@ export const SystemModuleEntry: React.FC = () => {
 
       <div className="transition-all duration-300">
         {activeTab === 'users' && <UserManager />}
+        {activeTab === 'modules' && <ModuleSettings />}
         {activeTab === 'logs' && <LogViewer />}
       </div>
     </div>

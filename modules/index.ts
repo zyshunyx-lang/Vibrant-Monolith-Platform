@@ -7,7 +7,7 @@ export interface ModuleDefinition {
   icon: IconName;
   route: string;
   description: string;
-  roles?: string[]; // 限制可见角色
+  roles?: string[]; // 限制可见角色（废弃，建议未来改用 allowedModules）
 }
 
 export const AllModules: ModuleDefinition[] = [
@@ -33,7 +33,7 @@ export const AllModules: ModuleDefinition[] = [
     description: '在线预约会议室，查看实时占用情况。'
   },
   {
-    id: 'meetingNotice',
+    id: 'meeting-notice',
     name: '会议通知',
     icon: 'Bell',
     route: '/meeting-notice',
@@ -45,6 +45,13 @@ export const AllModules: ModuleDefinition[] = [
     icon: 'Package',
     route: '/assets',
     description: '固定资产扫码盘点、全生命周期履历追踪。'
+  },
+  {
+    id: 'tools',
+    name: '常用工具箱',
+    icon: 'Wrench',
+    route: '/tools',
+    description: 'PDF 处理、CAD 预览等日常办公辅助工具。'
   },
   {
     id: 'system',

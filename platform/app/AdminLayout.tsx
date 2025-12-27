@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { Icon, IconName } from '../ui/basic/Icon';
@@ -11,6 +12,7 @@ export const AdminLayout: React.FC = () => {
   const menuItems = [
     { name: t('admin.menu.overview'), path: '/admin', icon: 'LayoutDashboard' as IconName },
     { name: t('admin.menu.users'), path: '/admin/users', icon: 'Users' as IconName },
+    { name: '功能开关', path: '/admin/system/modules', icon: 'ToggleRight' as IconName },
     { name: t('admin.menu.logs'), path: '/admin/logs', icon: 'ScrollText' as IconName },
   ];
 
@@ -19,8 +21,8 @@ export const AdminLayout: React.FC = () => {
       {/* Sidebar */}
       <aside className="w-72 bg-white border-r border-slate-200 flex flex-col sticky top-0 h-screen">
         <div className="p-8 border-b border-slate-50">
-           <Link to="/" className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white">
+           <Link to="/" className="flex items-center gap-3 group">
+              <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white transition-transform group-hover:scale-110">
                 <Icon name="Settings" size={18} />
               </div>
               <h1 className="text-lg font-black text-slate-800 tracking-tight uppercase">{t('admin.title')}</h1>
@@ -53,7 +55,7 @@ export const AdminLayout: React.FC = () => {
             <section>
               <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-4 px-4">{t('admin.group.business')}</h4>
               <div className="space-y-1">
-                {AllModules.map((module: any) => {
+                {AllModules.filter(m => m.id !== 'system').map((module: any) => {
                   const adminRoute = module.adminRoute || `/admin/modules/${module.id}`;
                   const isActive = adminRoute && location.pathname.startsWith(adminRoute);
                   

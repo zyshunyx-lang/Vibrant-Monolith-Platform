@@ -48,18 +48,21 @@ export const MenuWidget: React.FC = () => {
         <div className="space-y-4">
           {todayMenu && Object.keys(todayMenu).length > 0 ? (
             <div className="grid grid-cols-2 gap-4">
-              {Object.entries(todayMenu).map(([mealName, dishes], idx) => (
+              {/* Fix: Explicitly cast Object.entries result to [string, string[]][] to avoid 'unknown' type for 'dishes' */}
+              {(Object.entries(todayMenu) as [string, string[]][]).map(([mealName, dishes], idx) => (
                 <div key={mealName} className="space-y-2">
                   <div className="flex items-center gap-2 mb-1">
                     <Icon name={idx === 0 ? "Sun" : "Moon"} size={12} className="text-orange-500" />
                     <span className="text-[10px] font-black text-orange-500 uppercase tracking-widest">{mealName}</span>
                   </div>
                   <ul className="space-y-1">
+                    {/* Fix: Property 'map' now exists on 'dishes' due to explicit type casting above */}
                     {dishes.map((dish, i) => (
                       <li key={i} className="text-xs font-bold text-slate-700 bg-white/40 px-2 py-1 rounded-md border border-orange-100/50 truncate">
                         {dish}
                       </li>
                     ))}
+                    {/* Fix: Property 'length' now exists on 'dishes' due to explicit type casting above */}
                     {dishes.length === 0 && <li className="text-[10px] italic text-slate-400">未排餐</li>}
                   </ul>
                 </div>
